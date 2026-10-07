@@ -264,10 +264,9 @@ untuk satu event saja.
 --- Menu Payment Settings ---
 ┌─────────────────────────────────────────────────────┐
 │  Konfigurasi QRIS                                      │
-│  Provider         [ Tripay ▾ ]                          │
-│  Merchant Code    [ ●●●●●●●●●●●● ]                       │
-│  API Key          [ ●●●●●●●●●●●● ]                       │
-│  Private Key      [ ●●●●●●●●●●●● ]                       │
+│  Provider         [ DOKU ▾ ]                            │
+│  Client ID (BRN)  [ ●●●●●●●●●●●● ]                       │
+│  Secret Key       [ ●●●●●●●●●●●● ]                       │
 │  Status Koneksi   ✅ Terhubung                            │
 │  [ Simpan ]                                              │
 └─────────────────────────────────────────────────────┘

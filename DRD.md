@@ -5,7 +5,7 @@
 > **"Rekomendasi"** beserta alasannya. Semua pertanyaan terbuka dikumpulkan di
 > bagian **Pertanyaan Terbuka** di akhir dokumen.
 >
-> **Status:** Draft v1.5 · **Tanggal:** 7 Oktober 2026 · **Scope:** MVP
+> **Status:** Draft v1.6 · **Tanggal:** 7 Oktober 2026 · **Scope:** MVP
 >
 > **Perubahan v1.1 (patch dari v1, 6 Okt 2026):** hosting final (D5 — Tech
 > Stack §2, Deployment, Integrations §3); batas reservasi Cash mengikuti
@@ -33,6 +33,12 @@
 > Node.js). Disetujui pemilik project. T5 diputuskan sementara: **tanpa batas
 > reservasi Cash aktif per no HP** di MVP; tetap ada rate limit order 5/jam per
 > no HP (Security §4).
+>
+> **Perubahan v1.6:** **payment gateway QRIS diganti dari Tripay ke DOKU**
+> (keputusan D8, pemilik project). Kredensial per tenant: **Client ID (BRN /
+> Merchant Code) + Secret Key**; QR pembayaran tetap tampil langsung di landing
+> (Step 4). Detail endpoint & signature DOKU ditulis di Integrations §1 saat
+> adapter DOKU dibangun; implementasi Tripay yang ada bersifat sementara.
 
 > **⚠️ Keputusan baru dari brief DRD yang mengubah dokumen sebelumnya**
 >
@@ -44,6 +50,7 @@
 > | D4 | Uncle **tidak memproses refund finansial**, hanya menandai status `CANCELLED` / `REFUNDED`. | Mengonfirmasi asumsi PRD BR-RFD-01/03; menjawab sebagian PRD Q2. |
 > | D5 | **Hosting final:** Vercel Pro · Supabase Pro (Postgres + Storage, Singapore) · Cloudflare Free (DNS) · Resend Free (naik paket sesuai volume). Data pembeli boleh disimpan di Singapura. | Menggantikan rekomendasi Neon / Cloudflare R2. Menjawab T6 & T7 (dihapus). Lihat Tech Stack §2 & Deployment. |
 > | D6 | **Batas reservasi Cash default = jam selesai event** (bukan H-1, bukan jam mulai); Owner bisa mempercepat per event. | Mengganti default `UNTIL_EVENT_START` di §Database 5.2. Sejalan dengan PRD v1.1 BR-TRX-08. Menjawab sebagian T5. |
+> | D8 | **Payment gateway QRIS = DOKU** (bukan Tripay); kredensial Client ID (BRN/Merchant Code) + Secret Key; QRIS tampil langsung di landing. | Mengganti Tripay di Integrations §1, PRD ADM-07, UI-UX Payment Settings, overview. Kolom `payment_configs` disesuaikan saat adapter DOKU dibangun. T1–T4 (Tripay) diganti pertanyaan DOKU (T23). |
 > | D7 | Scan reservasi Cash kedaluwarsa → admin bisa **membuat pesanan baru berstatus Lunas** dengan data yang sama bila kuota masih ada. | Endpoint baru `…/orders/{orderId}/reissue` (API §5), kolom `orders.reissued_from_order_id`. Sejalan dengan PRD SCN-08 / BR-TKT-07 & UI-UX Scan (k). |
 >
 > `PRD.md` dan `UI-UX.md` sudah disesuaikan dengan D1, D2, D6, D7 di v1.1
@@ -1053,7 +1060,14 @@ Request: POST /api/admin/events/{eventId}/tickets/{ticketId}/check-in
 
 ## Integrations
 
-### 1. Payment Gateway QRIS — Tripay (per tenant)
+### 1. Payment Gateway QRIS — DOKU (per tenant; sebelumnya Tripay)
+
+> **⚠️ D8 (v1.6):** provider diganti **DOKU**. Prinsip, alur create payment,
+> verifikasi webhook, idempotensi, dan rekonsiliasi di bawah tetap berlaku;
+> yang berganti hanya adapter (`PaymentProvider`) dan bentuk kredensial
+> (Client ID/BRN + Secret Key). Endpoint & signature yang disebut "Tripay" di
+> bawah adalah implementasi sementara sampai adapter DOKU dibangun dan
+> diverifikasi terhadap dokumentasi resmi DOKU (T23).
 
 > Detail field & endpoint Tripay di bawah mengikuti pola umum API Tripay dan
 > **wajib diverifikasi ulang terhadap dokumentasi resmi Tripay terbaru**
@@ -1465,6 +1479,7 @@ Skenario kenaikan yang paling mungkin:
 | T3 | Tripay — alur dana | Di Tripay, dana masuk ke saldo akun merchant client lalu ditarik ke rekening client. Apakah ini sesuai maksud "uang langsung masuk ke rekening client" di overview? |
 | T4 | Onboarding client ke Tripay | Client harus punya akun merchant Tripay terverifikasi (KYC bisnis) sebelum bisa QRIS. Berapa lama prosesnya, dan apakah Uncle perlu panduan/bantuan onboarding? |
 | T5 | Batas reservasi Cash | 🟡 **Default terjawab:** jam selesai event, bisa dipercepat Owner (D6). **Sementara (v1.5):** tanpa batas reservasi Cash aktif per no HP di MVP; ditinjau ulang setelah ada data nyata. Perlukah opsi batas berbasis durasi sejak pemesanan (mode `FIXED_HOURS` versi lama dihapus) untuk client yang punya titik bayar sebelum hari-H? |
+| T23 | DOKU | Produk/endpoint DOKU mana untuk QRIS yang mengembalikan isi QR (bukan halaman checkout), format signature request & notifikasi, dan cara uji koneksi kredensial (Client ID/BRN + Secret Key)? Perlu dokumentasi resmi DOKU (tidak bisa diakses dari environment build). |
 | T8 | Proyeksi beban | Perkiraan jumlah event aktif bersamaan, kuota terbesar per event, dan puncak pembeli per menit saat penjualan dibuka (untuk validasi asumsi §Deployment 4)? |
 | T9 | Email | Domain pengirim (`mail.uncle.id`?) dan siapa pengirim yang tampil (nama event vs Uncle)? Perkiraan volume email/bulan & puncak per hari — tier gratis Resend dibatasi ±100 email/hari, setuju dengan pemicu upgrade di Integrations §2? |
 | T10 | 2FA & sesi | Setuju 2FA wajib untuk Owner? Durasi sesi Admin di HP scanner (usulan idle 12 jam)? |

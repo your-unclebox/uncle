@@ -9,6 +9,8 @@ import { Button } from "@/components/ui/button";
 import { formatEventDay, formatRupiah } from "@/lib/format";
 import type { PublicEvent } from "@/server/modules/tenancy/storefront";
 
+import { EmailDeliveryNote } from "./email-delivery-note";
+
 // Step 5 "Tiket Siap" & halaman pesanan (LP-10, UI-UX §1.3, User Flow §2).
 
 export interface TicketOrderView {
@@ -20,6 +22,8 @@ export interface TicketOrderView {
   readonly qrPayload: string | null;
   readonly ticketStatus: string | null;
   readonly customer: { name: string; phoneMasked: string } | null;
+  /** Status email QR Tiket di outbox (null = belum ada). */
+  readonly emailStatus: string | null;
 }
 
 function itemsLabel(items: TicketOrderView["items"]): string {
@@ -43,10 +47,13 @@ function EventLine({ event }: { event: PublicEvent }) {
 export function TicketReady({
   event,
   order,
+  accessToken = null,
   justCreated = false,
 }: {
   event: PublicEvent;
   order: TicketOrderView;
+  /** Untuk memperbarui status email tanpa memuat ulang halaman. */
+  accessToken?: string | null;
   justCreated?: boolean;
 }) {
   const pickedUp = order.ticketStatus === "CHECKED_IN";
@@ -148,7 +155,11 @@ export function TicketReady({
       {!pickedUp ? (
         <p className="text-sm text-ink">Tunjukkan QR ini saat pengambilan tiket di lokasi.</p>
       ) : null}
-      {/* Email belum aktif (Fase 6): klaim "sudah dikirim ke email" tidak ditampilkan (AC-LP-10.3). */}
+      <EmailDeliveryNote
+        orderCode={order.code}
+        accessToken={accessToken}
+        initialStatus={order.emailStatus}
+      />
       <p className="text-sm text-subtle">
         Simpan kode pesanan atau screenshot halaman ini sebagai cadangan.
       </p>

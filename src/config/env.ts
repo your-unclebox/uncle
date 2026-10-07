@@ -26,6 +26,8 @@ const serverEnvSchema = z.object({
   EMAIL_API_KEY: optionalString,
   EMAIL_FROM: optionalString,
   EMAIL_WEBHOOK_SECRET: optionalString,
+  // Hanya dev/E2E: tanpa EMAIL_API_KEY, email ditulis ke folder ini (tidak dikirim).
+  EMAIL_DEV_OUTBOX_DIR: optionalString,
   UPSTASH_REDIS_REST_URL: z.url().optional(),
   UPSTASH_REDIS_REST_TOKEN: optionalString,
   TURNSTILE_SECRET_KEY: optionalString,
