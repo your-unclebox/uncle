@@ -119,12 +119,13 @@ describe("Storefront: pesanan customer (LP-10, LP-11, DRD Auth §4)", () => {
     const { event, created } = await setup();
     const other = await createEvent(db);
     const code = created.order.orderCode;
-    for (const attempt of [
-      view(event.id, code, "salah", BEFORE_EVENT),
-      view(event.id, code, null, BEFORE_EVENT),
-      view(other.id, code, created.accessToken, BEFORE_EVENT),
-    ]) {
-      await expect(attempt).rejects.toMatchObject({ code: "ORDER_NOT_FOUND", status: 404 });
+    const attempts = [
+      () => view(event.id, code, "salah", BEFORE_EVENT),
+      () => view(event.id, code, null, BEFORE_EVENT),
+      () => view(other.id, code, created.accessToken, BEFORE_EVENT),
+    ];
+    for (const attempt of attempts) {
+      await expect(attempt()).rejects.toMatchObject({ code: "ORDER_NOT_FOUND", status: 404 });
     }
   });
 
