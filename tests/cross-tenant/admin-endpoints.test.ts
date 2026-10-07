@@ -85,6 +85,11 @@ const REGISTRY: Record<string, Entry> = {
     params: evOrder,
     body: { cashReceived: true, expectedTotal: 75000 },
   },
+  "POST orders/[orderId]/resend-ticket": {
+    load: () => import("@/app/api/admin/events/[eventId]/orders/[orderId]/resend-ticket/route"),
+    path: (t) => `${base(t)}/orders/${t.orderId}/resend-ticket`,
+    params: evOrder,
+  },
   "POST scan": {
     load: () => import("@/app/api/admin/events/[eventId]/scan/route"),
     path: (t) => `${base(t)}/scan`,
