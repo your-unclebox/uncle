@@ -20,6 +20,8 @@ export default defineConfig({
   ],
   webServer: {
     command: `npm run start -- -p ${PORT}`,
+    // Landing page diakses lewat {slug}.uncle.localhost:3100 (proxy.ts).
+    env: { APP_BASE_DOMAIN: `uncle.localhost:${PORT}` },
     url: `http://localhost:${PORT}/login`,
     reuseExistingServer: true,
     timeout: 60_000,

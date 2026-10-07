@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { normalizeIndonesianPhone } from "./phone";
+import { maskPhone, normalizeIndonesianPhone } from "./phone";
 
 describe("normalizeIndonesianPhone (BR-TRX-02)", () => {
   it.each([
@@ -19,4 +19,11 @@ describe("normalizeIndonesianPhone (BR-TRX-02)", () => {
       expect(normalizeIndonesianPhone(input)).toBeNull();
     },
   );
+});
+
+describe("maskPhone", () => {
+  it("menyamarkan bagian tengah no HP", () => {
+    expect(maskPhone("+6281234567890")).toBe("0812****7890");
+    expect(maskPhone("0812")).toBe("0812");
+  });
 });

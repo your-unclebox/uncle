@@ -9,3 +9,4 @@ export {
   updateTicketType,
   updateTicketTypeInputSchema,
 } from "./ticket-types";
+export { listPublicTicketTypes, type PublicTicketType } from "./public-ticket-types";

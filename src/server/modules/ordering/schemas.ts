@@ -67,3 +67,16 @@ export const reissueExpiredOrderInputSchema = z
   .strict();
 
 export type ReissueExpiredOrderInput = z.input<typeof reissueExpiredOrderInputSchema>;
+
+// Body POST /api/public/orders (DRD API §2). Idempotency-Key datang dari header.
+export const publicOrderRequestSchema = z
+  .object({
+    items: createCashOrderInputSchema.shape.items,
+    customer: customerSchema,
+    paymentMethod: z.enum(["QRIS", "CASH"], "Pilih metode pembayaran"),
+    // Cloudflare Turnstile (DRD Security §4) — belum diverifikasi, kredensial belum ada.
+    captchaToken: z.string().max(4096).optional(),
+  })
+  .strict();
+
+export type PublicOrderRequest = z.input<typeof publicOrderRequestSchema>;
