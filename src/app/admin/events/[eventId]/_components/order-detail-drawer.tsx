@@ -22,6 +22,9 @@ type State =
   | { kind: "error"; message: string }
   | { kind: "ready"; detail: AdminOrderDetail };
 
+// Hasil fetch disimpan bersama ID-nya; ID lain = masih memuat (tanpa setState di effect).
+type Loaded = { readonly orderId: string; readonly state: State };
+
 const EMAIL_LABEL: Record<string, string> = {
   PENDING: "Menunggu dikirim",
   SENDING: "Sedang dikirim",
@@ -44,22 +47,26 @@ export function OrderDetailDrawer({
   onChanged: () => void;
 }) {
   const toast = useToast();
-  const [state, setState] = useState<State>({ kind: "loading" });
+  const [loaded, setLoaded] = useState<Loaded | null>(null);
+  const state: State = loaded && loaded.orderId === orderId ? loaded.state : { kind: "loading" };
+  const setState = (id: string, next: State) => setLoaded({ orderId: id, state: next });
   const [saving, setSaving] = useState(false);
   const api = `/api/admin/events/${eventId}`;
 
   useEffect(() => {
     if (!orderId) return;
     let active = true;
-    setState({ kind: "loading" });
     apiFetch<AdminOrderDetail>(`${api}/orders/${orderId}`)
-      .then((detail) => active && setState({ kind: "ready", detail }))
+      .then((detail) => active && setLoaded({ orderId, state: { kind: "ready", detail } }))
       .catch((error: unknown) => {
         if (!active) return;
         const notFound = error instanceof ApiError && error.problem.status === 404;
-        setState({
-          kind: "error",
-          message: notFound ? "Transaksi tidak ditemukan" : "Gagal memuat detail, coba lagi.",
+        setLoaded({
+          orderId,
+          state: {
+            kind: "error",
+            message: notFound ? "Transaksi tidak ditemukan" : "Gagal memuat detail, coba lagi.",
+          },
         });
       });
     return () => {
@@ -73,7 +80,7 @@ export function OrderDetailDrawer({
     try {
       await apiFetch(`${api}/tickets/${detail.ticket.id}/check-in`, { method: "POST" });
       toast("Tiket ditandai diambil");
-      setState({ kind: "ready", detail: await apiFetch(`${api}/orders/${detail.id}`) });
+      setState(detail.id, { kind: "ready", detail: await apiFetch(`${api}/orders/${detail.id}`) });
       onChanged();
     } catch (error) {
       toast(
