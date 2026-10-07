@@ -5,7 +5,7 @@
 > opsional.
 >
 > **Sumber kebenaran (urutan prioritas bila bertentangan):**
-> `uncle-overview.md` → `PRD.md` (v1.4) → `UI-UX.md` (v1.4) → `DRD.md` (v1.3,
+> `uncle-overview.md` → `PRD.md` (v1.4) → `UI-UX.md` (v1.4) → `DRD.md` (v1.5,
 > acuan final tech stack & arsitektur) → dokumen ini. Dokumen ini **tidak
 > boleh** dipakai untuk membatalkan keputusan di empat dokumen tersebut.
 >
@@ -225,7 +225,7 @@ dianggap bug kritis.
 ```
 uncle/
 ├─ src/
-│  ├─ middleware.ts                  # Host-based routing & tenant resolution (DRD Architecture §4)
+│  ├─ proxy.ts                       # Host-based routing & tenant resolution (DRD Architecture §4; Next 16: dulu middleware.ts)
 │  ├─ config/
 │  │  └─ env.ts                      # Validasi env (Zod); satu-satunya pembaca process.env
 │  │
@@ -311,7 +311,7 @@ Aturan penempatan:
   `admin/` (dan sebaliknya), selain `src/components/**` dan `src/lib/**`.
 - **[WAJIB]** `src/integrations/**` hanya diakses dari `src/server/**`, tidak
   dari komponen UI.
-- **[WAJIB]** Landing page berada di `src/app/sites/[slug]`; middleware
+- **[WAJIB]** Landing page berada di `src/app/sites/[slug]`; `src/proxy.ts`
   me-rewrite `{slug}.uncle.id` ke `/sites/{slug}` dan menolak akses langsung
   ke `/sites/*` dari host `app`/`www`/apex (404). Sudah disetujui dan dicatat di
   DRD v1.3 (sebelumnya `/_sites/{slug}`, yang tidak membentuk route di App

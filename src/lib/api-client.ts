@@ -15,7 +15,12 @@ export class ApiError extends Error {
 
 export async function apiFetch<T>(
   path: string,
-  options: { method?: string; body?: unknown; ifMatch?: number } = {},
+  options: {
+    method?: string;
+    body?: unknown;
+    ifMatch?: number;
+    headers?: Record<string, string>;
+  } = {},
 ): Promise<T> {
   let response: Response;
   try {
@@ -23,6 +28,7 @@ export async function apiFetch<T>(
       method: options.method ?? "GET",
       headers: {
         "content-type": "application/json",
+        ...options.headers,
         ...(options.ifMatch !== undefined ? { "if-match": `"${options.ifMatch}"` } : {}),
       },
       ...(options.body !== undefined ? { body: JSON.stringify(options.body) } : {}),

@@ -2,11 +2,18 @@ import "server-only";
 
 export { computeCashExpiresAt } from "./cash-reservation";
 export {
+  getCustomerOrder,
+  lookupCustomerOrder,
+  orderLookupInputSchema,
+  type CustomerOrder,
+} from "./customer-orders";
+export {
   createCashOrder,
   type CashOrderResult,
   type CreateCashOrderDeps,
 } from "./create-cash-order";
 export * from "./errors";
+export { signLookupToken, verifyOrderAccessToken } from "./order-access";
 export { generateOrderCode } from "./order-code";
 export {
   assertTransition,
@@ -24,7 +31,9 @@ export { reissueExpiredOrder, type ReissueDeps, type ReissueResult } from "./rei
 export {
   createCashOrderInputSchema,
   customerSchema,
+  publicOrderRequestSchema,
   reissueExpiredOrderInputSchema,
   type CreateCashOrderInput,
+  type PublicOrderRequest,
   type ReissueExpiredOrderInput,
 } from "./schemas";

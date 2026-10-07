@@ -5,7 +5,7 @@
 > **"Rekomendasi"** beserta alasannya. Semua pertanyaan terbuka dikumpulkan di
 > bagian **Pertanyaan Terbuka** di akhir dokumen.
 >
-> **Status:** Draft v1.4 · **Tanggal:** 7 Oktober 2026 · **Scope:** MVP
+> **Status:** Draft v1.5 · **Tanggal:** 7 Oktober 2026 · **Scope:** MVP
 >
 > **Perubahan v1.1 (patch dari v1, 6 Okt 2026):** hosting final (D5 — Tech
 > Stack §2, Deployment, Integrations §3); batas reservasi Cash mengikuti
@@ -27,6 +27,12 @@
 > (PRD AC-OWN-04.1, disetujui pemilik project). `slug`, `starts_at`, `ends_at`
 > menjadi nullable; CHECK `ck_events_non_draft_complete` mewajibkan ketiganya
 > untuk status selain `DRAFT` (BR-EVT-04, BR-EVT-09).
+>
+> **Perubahan v1.5:** host-based routing memakai **`src/proxy.ts`** (Next.js 16
+> mengganti nama konvensi `middleware` menjadi `proxy`; fungsi sama, runtime
+> Node.js). Disetujui pemilik project. T5 diputuskan sementara: **tanpa batas
+> reservasi Cash aktif per no HP** di MVP; tetap ada rate limit order 5/jam per
+> no HP (Security §4).
 
 > **⚠️ Keputusan baru dari brief DRD yang mengubah dokumen sebelumnya**
 >
@@ -71,7 +77,7 @@ belum ada kebutuhan skala yang membenarkan microservices.
 ┌──────────────────────────────────────────────────────────────────────────────────────────┐
 │                         UNCLE WEB APP (Next.js, modular monolith)                         │
 │                                                                                          │
-│  ┌──────────────── Edge Middleware: Host-based routing & tenant resolution ────────────┐ │
+│  ┌──────────────── Proxy (src/proxy.ts): Host-based routing & tenant resolution ───────┐ │
 │  │  {slug}.uncle.id  → rewrite ke /sites/{slug}/…    (Landing Page + Public API)       │ │
 │  │  app.uncle.id     → /owner/…, /admin/{eventId}/…, /api/…                            │ │
 │  │  uncle.id, www    → halaman marketing Uncle                                         │ │
@@ -142,7 +148,7 @@ event.
 GET https://teaterbagol.uncle.id/
  1. DNS  *.uncle.id  → Vercel (wildcard CNAME di Cloudflare, DNS-only)
  2. TLS  sertifikat per host diterbitkan otomatis oleh Vercel (lihat Deployment §3)
- 3. Middleware baca Host = "teaterbagol.uncle.id"
+ 3. Proxy (src/proxy.ts) baca Host = "teaterbagol.uncle.id"
       ├─ host ∈ {app, www, apex}        → routing normal
       ├─ subdomain ∈ daftar cadangan    → 404
       └─ selain itu: slug = "teaterbagol" → rewrite ke /sites/teaterbagol
@@ -245,7 +251,7 @@ habis padahal tersedia.
 | Lapisan | Pilihan | Alasan |
 |---|---|---|
 | Bahasa | **TypeScript** (frontend & backend) | Satu bahasa, tipe dibagi antara API & UI (mis. schema validasi), mengurangi bug kontrak. |
-| Framework web | **Next.js (App Router)** | Satu codebase untuk landing (SSR/ISR, SEO, cepat di HP), dashboard, dan API route handlers. **Middleware Host-based rewrite** adalah pola standar multi-tenant subdomain. |
+| Framework web | **Next.js (App Router)** | Satu codebase untuk landing (SSR/ISR, SEO, cepat di HP), dashboard, dan API route handlers. **Proxy (dulu Middleware) Host-based rewrite** adalah pola standar multi-tenant subdomain. |
 | UI | **Tailwind CSS + shadcn/ui** (Radix) | Komponen aksesibel siap pakai; tema berbasis CSS variables cocok untuk token warna client (`--color-primary`) di UI-UX Design System. |
 | Form & validasi | **Zod** + React Hook Form | Schema Zod yang sama dipakai di client & server (validasi input wajib di server). |
 | Database | **PostgreSQL di Supabase Pro** (versi mayor yang disediakan Supabase untuk project baru) | Transaksi ACID, `SELECT … FOR UPDATE`, `CHECK` constraint, partial unique index, RLS, `citext`, `jsonb` — semua dibutuhkan untuk kuota, idempotensi, dan isolasi tenant. **Final (D5).** Supabase hanya dipakai sebagai Postgres + Storage; **Supabase Auth & Data API (PostgREST) tidak dipakai** (lihat Security §3). |
@@ -1240,7 +1246,7 @@ Step 4 memanggil hal yang sama (rate limited).
 | Endpoint | Batas *(Rekomendasi, disesuaikan setelah data nyata)* | Kunci |
 |---|---|---|
 | `POST /api/public/orders` | 10/menit & 30/jam | IP |
-| | 5/jam; maks 2 reservasi Cash aktif per event | no HP (dinormalisasi) |
+| | 5/jam (batas reservasi Cash aktif per no HP: belum dipakai di MVP, T5) | no HP (dinormalisasi) |
 | `POST /api/public/orders/lookup` | 5/menit; 10/jam per orderCode | IP, orderCode |
 | `GET /api/public/orders/{code}` (polling) | 30/menit | orderCode |
 | `POST …/payment/check` | 6/menit | orderCode |
@@ -1458,7 +1464,7 @@ Skenario kenaikan yang paling mungkin:
 | T2 | Tripay — channel & callback | Kode channel QRIS mana yang dipakai, apakah `callback_url` bisa diatur per transaksi atau harus didaftarkan manual per akun merchant di dashboard Tripay (berdampak ke onboarding client)? Perlu verifikasi dokumentasi resmi. |
 | T3 | Tripay — alur dana | Di Tripay, dana masuk ke saldo akun merchant client lalu ditarik ke rekening client. Apakah ini sesuai maksud "uang langsung masuk ke rekening client" di overview? |
 | T4 | Onboarding client ke Tripay | Client harus punya akun merchant Tripay terverifikasi (KYC bisnis) sebelum bisa QRIS. Berapa lama prosesnya, dan apakah Uncle perlu panduan/bantuan onboarding? |
-| T5 | Batas reservasi Cash | 🟡 **Default terjawab:** jam selesai event, bisa dipercepat Owner (D6). Masih terbuka: batas reservasi Cash aktif per no HP (usulan 2)? Perlukah opsi batas berbasis durasi sejak pemesanan (mode `FIXED_HOURS` versi lama dihapus) untuk client yang punya titik bayar sebelum hari-H? |
+| T5 | Batas reservasi Cash | 🟡 **Default terjawab:** jam selesai event, bisa dipercepat Owner (D6). **Sementara (v1.5):** tanpa batas reservasi Cash aktif per no HP di MVP; ditinjau ulang setelah ada data nyata. Perlukah opsi batas berbasis durasi sejak pemesanan (mode `FIXED_HOURS` versi lama dihapus) untuk client yang punya titik bayar sebelum hari-H? |
 | T8 | Proyeksi beban | Perkiraan jumlah event aktif bersamaan, kuota terbesar per event, dan puncak pembeli per menit saat penjualan dibuka (untuk validasi asumsi §Deployment 4)? |
 | T9 | Email | Domain pengirim (`mail.uncle.id`?) dan siapa pengirim yang tampil (nama event vs Uncle)? Perkiraan volume email/bulan & puncak per hari — tier gratis Resend dibatasi ±100 email/hari, setuju dengan pemicu upgrade di Integrations §2? |
 | T10 | 2FA & sesi | Setuju 2FA wajib untuk Owner? Durasi sesi Admin di HP scanner (usulan idle 12 jam)? |
