@@ -6,7 +6,7 @@
 > **Pertanyaan Terbuka** di akhir dokumen.
 >
 > **Contoh kasus:** event **Teater Bagol** (`teaterbagol.uncle.id`).
-> **Status:** Draft v1.1 · **Tanggal:** 7 Oktober 2026 · **Scope:** MVP
+> **Status:** Draft v1.2 · **Tanggal:** 7 Oktober 2026 · **Scope:** MVP
 >
 > **Perubahan v1.1 (patch dari v1, 6 Okt 2026):** (1) email customer **wajib**
 > (BR-TRX-02/03, LP-07); (2) Cash = **Reserved** dengan batas waktu — default
@@ -14,6 +14,11 @@
 > (3) Payment Settings memakai **3 kredensial** Tripay: Merchant Code, API Key,
 > Private Key (ADM-07); (4) Scanner punya hasil baru **Reservasi Kedaluwarsa**
 > + "Buat Pesanan Baru dengan Data Ini" (SCN-08, BR-TKT-07).
+>
+> **Perubahan v1.2:** form Info Umum memisahkan **Tanggal, Jam Mulai, Jam
+> Selesai**; **Jam Selesai wajib** (default terisi Jam Mulai + 3 jam, bisa
+> diubah) dan menjadi basis default batas reservasi Cash (OWN-04, BR-EVT-04,
+> BR-EVT-08, BR-TRX-08, AC-OWN-04.2/04.3).
 
 ---
 
@@ -183,7 +188,7 @@ bila kapasitas memungkinkan · **Could** = nice-to-have, bisa setelah MVP.
 | OWN-01 | Login Owner | Autentikasi akun Owner ke Owner Dashboard. | Must |
 | OWN-02 | Ringkasan Semua Event | Kartu metrik: Total Event, Tiket Terjual, Event Aktif, Revenue (lintas semua event). | Must |
 | OWN-03 | Daftar Event | Tabel event dengan nama, status (Draft/Aktif/Selesai), jumlah tiket terjual; klik untuk edit; tombol "+ Buat Event". | Must |
-| OWN-04 | Buat/Edit Event — Info Umum | Form dari template: nama event, deskripsi, tanggal/waktu, lokasi. | Must |
+| OWN-04 | Buat/Edit Event — Info Umum | Form dari template: nama event, deskripsi, **tanggal, jam mulai, jam selesai** (jam selesai wajib; default terisi jam mulai + 3 jam, bisa diubah), lokasi. | Must |
 | OWN-05 | Upload Dokumentasi | Upload foto/video untuk galeri landing page. | Must |
 | OWN-06 | Branding | Upload logo, pilih warna tema Primary & Secondary. | Must |
 | OWN-07 | Jenis Tiket | Tambah/edit/hapus jenis tiket: nama, harga, kuota (boleh > 1 kategori). | Must |
@@ -270,11 +275,12 @@ bila kapasitas memungkinkan · **Could** = nice-to-have, bisa setelah MVP.
 | BR-EVT-01 | **1 event = 1 landing page = 1 subdomain** `{slug}.uncle.id`. |
 | BR-EVT-02 | Slug harus unik di seluruh platform. *Asumsi — perlu konfirmasi:* format huruf kecil `a–z`, angka `0–9`, dan tanda `-`; panjang 3–30 karakter; tidak boleh diawali/diakhiri `-`; daftar kata cadangan ditolak (mis. `www`, `admin`, `api`, `app`, `owner`, `mail`). |
 | BR-EVT-03 | Event memiliki status **Draft → Aktif → Selesai**. Hanya event **Aktif** yang menerima pembelian. Event Draft tidak dapat diakses publik. |
-| BR-EVT-04 | Event hanya bisa di-publish bila minimal terisi: nama, tanggal/waktu, lokasi, ≥ 1 jenis tiket (harga & kuota valid), dan slug valid. *(Asumsi — perlu konfirmasi untuk daftar field wajib)* |
+| BR-EVT-04 | Event hanya bisa di-publish bila minimal terisi: nama, tanggal, **jam mulai, jam selesai**, lokasi, ≥ 1 jenis tiket (harga & kuota valid), dan slug valid. *(Asumsi — perlu konfirmasi untuk daftar field wajib)* |
 | BR-EVT-05 | Setiap jenis tiket wajib punya nama, harga, dan kuota > 0. *Asumsi — perlu konfirmasi:* harga minimum Rp 1 (tiket gratis Rp 0 tidak didukung di MVP karena alur QRIS). |
 | BR-EVT-06 | *Asumsi — perlu konfirmasi:* slug **tidak dapat diubah** setelah event memiliki transaksi, agar link & QR yang sudah dibagikan tetap valid. |
 | BR-EVT-07 | *Asumsi — perlu konfirmasi:* perubahan harga tiket hanya berlaku untuk transaksi baru; transaksi lama tetap memakai harga saat dibuat. Kuota tidak boleh diturunkan di bawah jumlah tiket yang sudah terjual/ditahan. Jenis tiket yang sudah punya transaksi tidak boleh dihapus (hanya bisa dinonaktifkan). |
-| BR-EVT-08 | *Asumsi — perlu konfirmasi:* event otomatis berstatus **Selesai** setelah tanggal/waktu event lewat; penjualan ditutup, tetapi Scanner tetap bisa dipakai hingga akhir hari event. |
+| BR-EVT-08 | *Asumsi — perlu konfirmasi:* event otomatis berstatus **Selesai** setelah **jam selesai** event lewat; penjualan ditutup, tetapi Scanner tetap bisa dipakai hingga akhir hari event. |
+| BR-EVT-09 | **Jam Selesai wajib.** Saat Owner mengisi Jam Mulai, Jam Selesai otomatis terisi **Jam Mulai + 3 jam** dan bisa diubah. Jam Selesai dipakai sebagai basis default batas reservasi Cash (BR-TRX-08) dan penanda event Selesai (BR-EVT-08). *Asumsi — perlu konfirmasi:* Jam Selesai harus setelah Jam Mulai pada tanggal yang sama (event lewat tengah malam → Q21). |
 
 ### Akses & Isolasi Data
 
@@ -297,7 +303,7 @@ bila kapasitas memungkinkan · **Could** = nice-to-have, bisa setelah MVP.
 | BR-TRX-05 | *Asumsi — perlu konfirmasi:* maksimal **10 tiket per transaksi** (gabungan semua jenis). |
 | BR-TRX-06 | Kuota tersisa = kuota − tiket terjual − tiket yang sedang ditahan. Jumlah yang dipesan tidak boleh melebihi kuota tersisa per jenis; pengecekan dilakukan atomik saat transaksi dibuat. |
 | BR-TRX-07 | *Asumsi — perlu konfirmasi:* transaksi **QRIS** menahan kuota sejak QR pembayaran dibuat sampai Lunas atau kedaluwarsa; jika kedaluwarsa, kuota dikembalikan. |
-| BR-TRX-08 | Transaksi **Cash** berstatus **Reserved** (status bayar "Belum") dan **menahan kuota** sejak QR Tiket terbit sampai **batas reservasi**. Batas reservasi **default = jam selesai event** (bukan H-1, karena Cash dibayar di venue saat hari-H). Owner dapat **mempercepat** batas ini per event (OWN-17), mis. jam mulai event atau sekian jam setelah mulai; batas tidak boleh melewati jam selesai event. Bila lewat batas tanpa dikonfirmasi Lunas, transaksi otomatis **Kedaluwarsa**, kuota **kembali ke pool**, dan QR Tiket-nya tidak berlaku lagi (scan → "Reservasi Kedaluwarsa", BR-TKT-07). Sebelum batas, kuota juga kembali bila admin membatalkan transaksi (ADM-09). *Asumsi — perlu konfirmasi:* jam selesai event wajib diisi saat publish agar batas default jelas. |
+| BR-TRX-08 | Transaksi **Cash** berstatus **Reserved** (status bayar "Belum") dan **menahan kuota** sejak QR Tiket terbit sampai **batas reservasi**. Batas reservasi **default = jam selesai event** (bukan H-1, karena Cash dibayar di venue saat hari-H). Owner dapat **mempercepat** batas ini per event (OWN-17), mis. jam mulai event atau sekian jam setelah mulai; batas tidak boleh melewati jam selesai event. Bila lewat batas tanpa dikonfirmasi Lunas, transaksi otomatis **Kedaluwarsa**, kuota **kembali ke pool**, dan QR Tiket-nya tidak berlaku lagi (scan → "Reservasi Kedaluwarsa", BR-TKT-07). Sebelum batas, kuota juga kembali bila admin membatalkan transaksi (ADM-09). Basis batas default adalah **Jam Selesai** di form Info Umum, yang wajib diisi (BR-EVT-09). |
 | BR-TRX-09 | Setiap transaksi punya **kode pesanan** unik yang tampil di Step 5, di email, dan di dashboard admin. |
 
 ### Pembayaran
@@ -365,6 +371,8 @@ bila kapasitas memungkinkan · **Could** = nice-to-have, bisa setelah MVP.
 
 #### OWN-04 s/d OWN-09 Buat, Edit & Publish Event
 - **AC-OWN-04.1 (sukses — simpan draft)** — **Given** Owner di form Buat Event · **When** Owner mengisi nama event lalu klik Simpan · **Then** event tersimpan berstatus Draft dan belum bisa diakses publik.
+- **AC-OWN-04.2 (default jam selesai)** — **Given** Owner di tab Info Umum dengan Jam Selesai masih kosong · **When** Owner mengisi Jam Mulai 19:00 · **Then** Jam Selesai otomatis terisi 22:00 dan tetap bisa diubah; mengubah Jam Mulai lagi tidak menimpa Jam Selesai yang sudah diubah manual oleh Owner.
+- **AC-OWN-04.3 (gagal — jam selesai tidak valid)** — **Given** Owner di tab Info Umum · **When** Owner mengosongkan Jam Selesai atau mengisi jam yang tidak setelah Jam Mulai, lalu klik "Simpan & Publish" · **Then** publish ditolak dengan pesan pada field Jam Selesai ("Wajib diisi" / "Jam selesai harus setelah jam mulai").
 - **AC-OWN-05.1 (sukses — upload)** — **Given** Owner di tab Info Umum · **When** Owner mengunggah foto/video dengan format & ukuran yang didukung · **Then** file tampil di pratinjau galeri.
 - **AC-OWN-05.2 (gagal — file tidak valid)** — **Given** Owner di tab Info Umum · **When** Owner mengunggah file dengan format tidak didukung atau melebihi batas ukuran *(batas ukuran: Asumsi — perlu konfirmasi)* · **Then** upload ditolak dengan pesan yang menyebutkan format/ukuran yang diizinkan.
 - **AC-OWN-06.1 (sukses)** — **Given** Owner di tab Branding · **When** Owner mengunggah logo dan memilih warna Primary & Secondary lalu menyimpan · **Then** landing page memakai logo dan warna tersebut.
@@ -530,3 +538,4 @@ bila kapasitas memungkinkan · **Could** = nice-to-have, bisa setelah MVP.
 | Q18 | Data pribadi | Berapa lama data customer (nama, no HP, email) disimpan setelah event selesai, dan apakah perlu persetujuan privasi di checkout (UU PDP)? | BR-ACC-04 |
 | Q19 | Harga pesanan baru dari reservasi kedaluwarsa | Saat admin membuat pesanan baru dari reservasi kedaluwarsa, harga mengikuti **harga saat ini** (usulan, konsisten dengan BR-EVT-07) atau harga pada reservasi lama? | BR-TKT-07, SCN-08 |
 | Q20 | Kuota sebagian | Untuk reservasi kedaluwarsa multi-jenis yang kuotanya hanya cukup sebagian (mis. Reguler ada, VIP habis), apakah admin boleh membuat pesanan baru untuk jenis yang masih tersedia saja? Usulan MVP: tidak (semua-atau-tidak-sama-sekali). | BR-TKT-07, AC-SCN-08.6 |
+| Q21 | Event lewat tengah malam | Form punya satu Tanggal + Jam Mulai + Jam Selesai. Perlu dukungan event yang selesai keesokan hari (mis. 21:00–01:00)? Usulan MVP: belum didukung, Jam Selesai harus setelah Jam Mulai di tanggal yang sama. | BR-EVT-09 |

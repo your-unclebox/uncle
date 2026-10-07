@@ -207,7 +207,12 @@ untuk satu event saja.
 │  --- Info Umum ---                                     │
 │  Nama Event      [______________________]              │
 │  Deskripsi       [______________________]              │
-│  Tanggal/Waktu   [______________________]              │
+│  Tanggal         [______________________]              │
+│  Jam Mulai       [______________________]              │
+│  Jam Selesai     [______________________]  (wajib —    │
+│                   default terisi Jam Mulai + 3 jam,     │
+│                   bisa diubah; dipakai sebagai basis    │
+│                   default batas reservasi Cash)         │
 │  Lokasi          [______________________]              │
 │  Dokumentasi     [ Upload Foto / Video ]                │
 │                                                         │

@@ -5,13 +5,17 @@
 > **"Rekomendasi"** beserta alasannya. Semua pertanyaan terbuka dikumpulkan di
 > bagian **Pertanyaan Terbuka** di akhir dokumen.
 >
-> **Status:** Draft v1.1 · **Tanggal:** 7 Oktober 2026 · **Scope:** MVP
+> **Status:** Draft v1.2 · **Tanggal:** 7 Oktober 2026 · **Scope:** MVP
 >
 > **Perubahan v1.1 (patch dari v1, 6 Okt 2026):** hosting final (D5 — Tech
 > Stack §2, Deployment, Integrations §3); batas reservasi Cash mengikuti
 > overview terbaru (D6 — §Database 5.2); endpoint baru "buat pesanan baru dari
 > reservasi kedaluwarsa" (D7 — API §5); T6 & T7 dihapus dari Pertanyaan Terbuka
 > karena sudah diputuskan; pertanyaan teknis baru T18–T22.
+>
+> **Perubahan v1.2:** `events.ends_at` wajib (overview: Jam Selesai wajib,
+> default Jam Mulai + 3 jam di form); fallback "mulai + 4 jam" dihapus; T20
+> terjawab dan dihapus.
 
 > **⚠️ Keputusan baru dari brief DRD yang mengubah dokumen sebelumnya**
 >
@@ -205,7 +209,7 @@ Hasil RESERVATION_EXPIRED + kuota cukup → admin centang "Sudah terima uang"
 | `expire-orders` | 1 menit | Order `PENDING_PAYMENT`/`RESERVED` dengan `expires_at < now()` → `EXPIRED`, ticket → `VOID`, kuota dilepas. Pakai `FOR UPDATE SKIP LOCKED`, batch 100. |
 | `process-email-outbox` | 1 menit (+ dipicu langsung setelah commit) | Kirim email `PENDING`, retry backoff eksponensial (maks 5 kali). |
 | `reconcile-qris` | 5 menit | Untuk transaksi QRIS `UNPAID` berumur > 2 menit, cek status ke API gateway (fallback jika webhook hilang). |
-| `finish-events` | 15 menit | Event `ACTIVE` yang melewati waktu selesai → `FINISHED` (PRD BR-EVT-08). |
+| `finish-events` | 15 menit | Event `ACTIVE` dengan `ends_at < now()` → `FINISHED` (PRD BR-EVT-08). |
 | `purge-webhook-inbox` | Harian | Arsipkan/hapus raw webhook > 90 hari *(Rekomendasi)*. |
 
 **Ketepatan kuota tidak bergantung pada cron:** setiap transaksi alokasi kuota
@@ -388,7 +392,7 @@ bukan batas tenant)
 | `sales_open` | boolean default true | Tutup penjualan tanpa unpublish (OWN-14). |
 | `name`, `description_html` | text | HTML disanitasi server-side. |
 | `category`, `event_type` | text | Mis. "Teater", "Di lokasi". |
-| `starts_at`, `ends_at` | timestamptz | `ends_at` NULL → dianggap `starts_at + 4 jam` (*Rekomendasi*). Karena `ends_at` kini menjadi batas default reservasi Cash (D6), diusulkan wajib diisi sebelum publish (T20). |
+| `starts_at`, `ends_at` | timestamptz NOT NULL | Dari form Info Umum: Tanggal + Jam Mulai + **Jam Selesai (wajib)**. Default `ends_at = starts_at + 3 jam` diisi di form (UI), bukan di DB. CHECK `ends_at > starts_at`. `ends_at` = basis default batas reservasi Cash (D6) & penanda `FINISHED`. |
 | `timezone` | text default `Asia/Jakarta` | |
 | `venue_name`, `venue_address`, `maps_url` | text | |
 | `venue_lat`, `venue_lng` | numeric(9,6) NULL | |
@@ -655,7 +659,7 @@ bisa **mempercepat** batas ini per event:
 
 | Mode | `expires_at` | Cocok untuk |
 |---|---|---|
-| `UNTIL_EVENT_END` *(default, D6)* | `events.ends_at` (atau `starts_at + 4 jam` bila `ends_at` kosong — lihat T20) | Cash dibayar di venue saat hari-H; reservasi berlaku sampai acara selesai. |
+| `UNTIL_EVENT_END` *(default, D6)* | `events.ends_at` | Cash dibayar di venue saat hari-H; reservasi berlaku sampai acara selesai. |
 | `UNTIL_EVENT_START` | `events.starts_at` | Owner ingin kuota yang tidak diambil segera tersedia lagi begitu acara mulai (mis. dijual on-the-spot). |
 | `AFTER_START_MINUTES` | `min(starts_at + cash_reservation_offset_minutes, ends_at)` | Memberi toleransi keterlambatan tertentu setelah acara mulai. |
 
@@ -1454,6 +1458,5 @@ Skenario kenaikan yang paling mungkin:
 | T17 | Zona waktu | Semua event di WIB, atau perlu dukungan WITA/WIT (kolom `timezone` sudah disiapkan)? |
 | T18 | SSL subdomain (Cloudflare DNS + Vercel) | Karena DNS tetap di Cloudflare, Vercel tidak bisa menerbitkan sertifikat wildcard `*.uncle.id`. Setuju dengan pendekatan **daftar host per event via Vercel Domains API saat publish** (Deployment §3)? Alternatifnya memindahkan nameserver `uncle.id` ke Vercel (DNS tidak lagi di Cloudflare). Perlu juga verifikasi batas jumlah domain per project di Vercel Pro. |
 | T19 | Backup / PITR | Cukup backup harian Supabase Pro (RPO ≤ 24 jam) di awal, atau langsung ambil add-on PITR (± +US$100/bulan) sebelum event besar pertama? |
-| T20 | Jam selesai event | Karena `ends_at` kini batas default reservasi Cash, setuju **jam selesai wajib diisi saat publish** (berdampak ke PRD BR-EVT-04 & form Info Umum UI-UX yang saat ini hanya punya satu jam)? Atau tetap pakai asumsi mulai + 4 jam bila kosong? |
 | T21 | Perubahan batas setelah ada reservasi | Jika Owner mengubah jadwal event atau mempercepat batas reservasi setelah ada order `RESERVED`: hitung ulang `expires_at` order yang sudah ada? Usulan: jadwal berubah → hitung ulang semua; mode dipercepat → hanya order baru (batas di email pembeli lama tetap berlaku). |
 | T22 | Order lama setelah reissue | Saat customer membuka Cek Pesanan / link email dengan kode reservasi lama yang sudah dibuatkan order baru, tampilkan arahan ke order baru (butuh akses token order baru via email) atau cukup status "Kedaluwarsa"? |

@@ -8,13 +8,17 @@
 > no HP) ditandai **(ikut asumsi PRD)**.
 >
 > **Contoh kasus:** event **Teater Bagol** (`teaterbagol.uncle.id`).
-> **Status:** Draft v1.1 · **Tanggal:** 7 Oktober 2026 · **Scope:** MVP
+> **Status:** Draft v1.2 · **Tanggal:** 7 Oktober 2026 · **Scope:** MVP
 >
 > **Perubahan v1.1 (patch dari v1, 6 Okt 2026):** (1) field **Email wajib** di
 > Step 2 (bukan opsional; untuk kirim salinan QR Tiket, bukan login);
 > (2) Payment Settings memakai **3 kredensial** (Merchant Code, API Key,
 > Private Key); (3) Scan Tiket punya state baru **Reservasi Kedaluwarsa**
 > (Wireframe §4 (k), User Flow §6) — PRD SCN-08 / BR-TKT-07.
+>
+> **Perubahan v1.2:** form Info Umum memakai field **Tanggal, Jam Mulai, Jam
+> Selesai** (Jam Selesai wajib, otomatis Jam Mulai + 3 jam, bisa diubah) —
+> Wireframe §2.3 & §2.4, User Flow §4, `DateTimePicker`, States Owner.
 
 **Tiga permukaan utama:**
 
@@ -117,7 +121,7 @@ flowchart LR
 flowchart TD
     A["Login Owner"] --> B["Dashboard: Ringkasan + Daftar Event"]
     B --> C["Klik '+ Buat Event'"]
-    C --> D["Tab Info Umum: nama, deskripsi, tanggal/waktu, lokasi, dokumentasi"]
+    C --> D["Tab Info Umum: nama, deskripsi, tanggal, jam mulai, jam selesai, lokasi, dokumentasi"]
     D --> E["Tab Branding: logo, warna primary/secondary + preview"]
     E --> F["Tab Jenis Tiket: tambah ≥ 1 jenis (nama, harga, kuota)"]
     F --> G["Tab Subdomain: isi slug → cek ketersediaan"]
@@ -602,9 +606,14 @@ Desktop: modal 440px di tengah · Mobile: bottom sheet full-width
 ├──────────────────────────────────────────────┬─────────────────────────────┤
 │ --- Info Umum ---                            │ CHECKLIST PUBLISH           │
 │ Nama Event *      [ Teater Bagol — "…" ]     │ ✔ Nama event                │
-│ Deskripsi *       [ rich text: B I list ]    │ ✔ Tanggal & waktu           │
+│ Deskripsi *       [ rich text: B I list ]    │ ✔ Tanggal, jam mulai &      │
+│                                              │   jam selesai               │
 │                   [                     ]    │ ✔ Lokasi                    │
-│ Tanggal *  [20/12/2026]  Waktu * [19:00] WIB │ ✔ ≥ 1 jenis tiket           │
+│ Tanggal *  [20/12/2026]                      │ ✔ ≥ 1 jenis tiket           │
+│ Jam Mulai * [19:00] WIB                      │                             │
+│ Jam Selesai * [22:00] WIB                    │                             │
+│   ⓘ Otomatis Jam Mulai + 3 jam, bisa diubah. │                             │
+│     Juga jadi batas default reservasi Cash.  │                             │
 │ Lokasi *          [ Nama tempat ]            │ ✘ Subdomain belum diisi     │
 │                   [ Alamat lengkap ]         │   → buka tab Subdomain      │
 │                   [ Link Google Maps ]       │                             │
@@ -701,8 +710,12 @@ PRD Q15 tanpa menambah tab baru). Cover/Banner dipisah dari dokumentasi.
 │ [________________________] │
 │ Tanggal *                  │
 │ [ 20/12/2026 ]             │
-│ Waktu *                    │
+│ Jam Mulai *                │
 │ [ 19:00 ]                  │
+│ Jam Selesai *              │
+│ [ 22:00 ]                  │ otomatis +3 jam, bisa diubah
+│ ⓘ Batas default reservasi  │
+│   Cash                     │
 │ ...                        │
 │ ▸ Checklist publish (1)    │ collapsible
 ├────────────────────────────┤
@@ -1243,7 +1256,7 @@ bisa ditambah pilihan "tegas (4)" / "lembut (12)" per client.
 | `Tabs` | Tab horizontal (desktop) / dropdown atau scroll (mobile). | `items[]` | Form Edit Event |
 | `FormField` | Label + input + helper/error; konsisten di semua form. | `label`, `required`, `error`, `helper` | Semua form |
 | `RichTextEditor` | Editor deskripsi sederhana (bold, italic, list, link). | — | Edit Event — Info Umum |
-| `DateTimePicker` | Pilih tanggal & jam (WIB). | — | Edit Event — Info Umum |
+| `DateTimePicker` | Pilih tanggal & jam (WIB). Pasangan Jam Mulai → Jam Selesai: Jam Selesai otomatis terisi Jam Mulai + 3 jam selama belum diubah manual. | `mode: date \| time`, `autoFillFrom?`, `offsetHours?` | Edit Event — Info Umum |
 | `MediaUploader` | Upload drag & drop, progress, preview, urutkan, hapus, validasi format/ukuran. | `accept`, `maxSize`, `multiple` | Dokumentasi, Cover, Logo |
 | `ColorPicker` | Pilih warna + hex + **cek kontras otomatis** + saran warna. | `value`, `contrastAgainst` | Edit Event — Branding |
 | `BrandPreview` | Preview mini landing page (mobile) dengan logo & warna terpilih. | `logo`, `primary`, `secondary` | Edit Event — Branding |
@@ -1396,7 +1409,7 @@ Transaksi. *(Rekomendasi — bisa disesuaikan)*
 |---|---|---|---|---|
 | **Ringkasan** | Skeleton 4 kartu metrik | Semua 0 + teks "Belum ada event" | "Gagal memuat ringkasan" + [Coba Lagi] (kartu lain tetap tampil bila datanya ada) | Angka tampil |
 | **Daftar Event** | Skeleton 5 baris tabel / 3 kartu | **Belum ada event:** ikon kalender + "Belum ada event. Buat event pertama untuk client kamu." + [+ Buat Event]. **Hasil cari kosong:** "Tidak ada event yang cocok" + [Reset filter] | Gagal muat → ErrorState + [Coba Lagi] | Tabel tampil |
-| **Form Edit Event — simpan** | Tombol "Simpan" → spinner "Menyimpan…" | — | Gagal simpan → toast merah "Perubahan gagal disimpan" (data form tidak hilang); validasi field inline; keluar halaman dengan perubahan belum disimpan → dialog konfirmasi | Toast hijau "Perubahan disimpan" |
+| **Form Edit Event — simpan** | Tombol "Simpan" → spinner "Menyimpan…" | — | Gagal simpan → toast merah "Perubahan gagal disimpan" (data form tidak hilang); validasi field inline (mis. "Jam selesai harus setelah jam mulai"); keluar halaman dengan perubahan belum disimpan → dialog konfirmasi | Toast hijau "Perubahan disimpan" |
 | **Upload Media** | Progress bar per file | Kotak drop "Seret foto/video ke sini atau [Pilih file]" | "Format tidak didukung (JPG, PNG, WebP, MP4)" / "Ukuran melebihi batas" / gagal upload → [Ulangi] per file | Thumbnail muncul dengan ✔ |
 | **Jenis Tiket** | Skeleton baris | "Belum ada jenis tiket. Tambahkan minimal 1 untuk publish." + [+ Tambah Jenis Tiket] | "Harga wajib diisi", "Kuota tidak boleh lebih kecil dari tiket terjual (120)" | Baris tersimpan |
 | **Subdomain** | Ikon ◌ "Memeriksa ketersediaan…" | Preview `____.uncle.id` | "Subdomain sudah digunakan" / format salah / terkunci karena sudah ada transaksi | "✔ Tersedia — teaterbagol.uncle.id" |
