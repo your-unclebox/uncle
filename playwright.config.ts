@@ -1,9 +1,12 @@
+import path from "node:path";
+
 import { defineConfig, devices } from "@playwright/test";
 
 // E2E terhadap build production + database development (.env).
 // Jalankan: npm run build && npm run test:e2e
 const PORT = 3100;
 const MOCK_TRIPAY_PORT = 3199;
+export const E2E_EMAIL_DIR = path.join(process.cwd(), ".data/e2e-emails");
 
 export default defineConfig({
   testDir: "tests/e2e",
@@ -35,6 +38,8 @@ export default defineConfig({
         APP_BASE_DOMAIN: `uncle.localhost:${PORT}`,
         APP_URL: `http://localhost:${PORT}`,
         TRIPAY_API_BASE_URL: `http://127.0.0.1:${MOCK_TRIPAY_PORT}/api-sandbox`,
+        // Tanpa EMAIL_API_KEY: email ditulis ke folder ini (tidak dikirim), diperiksa E2E.
+        EMAIL_DEV_OUTBOX_DIR: E2E_EMAIL_DIR,
       },
       url: `http://localhost:${PORT}/login`,
       reuseExistingServer: true,

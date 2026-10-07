@@ -1,4 +1,6 @@
 import { randomInt, randomUUID } from "node:crypto";
+import { readdir, readFile } from "node:fs/promises";
+import path from "node:path";
 
 import { expect, test, type Page } from "@playwright/test";
 import postgres from "postgres";
@@ -35,6 +37,20 @@ async function createActiveEvent(): Promise<string> {
     values (${event!.id}, 'Early Bird', 50000, 20, 20, 0)`;
   await sql.end();
   return slug;
+}
+
+// Email yang ditulis driver file (EMAIL_DEV_OUTBOX_DIR di playwright.config.ts).
+async function findEmail(orderCode: string) {
+  const dir = path.join(process.cwd(), ".data/e2e-emails");
+  for (const file of (await readdir(dir)).filter((name) => name.endsWith(".json"))) {
+    const email = JSON.parse(await readFile(path.join(dir, file), "utf8")) as {
+      to: string;
+      subject: string;
+      attachments: Array<{ contentId: string | null }>;
+    };
+    if (email.subject.includes(orderCode)) return email;
+  }
+  return undefined;
 }
 
 const visible = (page: Page, name: string | RegExp) =>
@@ -93,7 +109,16 @@ test("Pembeli memesan tiket Cash lalu membuka ulang lewat Cek Pesanan", async ({
   expect(orderCode).toMatch(/^UNC-[0-9A-Z]{6}$/);
   await expect(page.getByText("⏳ Belum bayar")).toBeVisible();
   await expect(page.getByText(/Siapkan uang tunai Rp 300\.000/)).toBeVisible();
-  await expect(page.getByText(/sudah dikirim ke email/)).toHaveCount(0);
+  // LP-10 / AC-LP-10.2: email reservasi terkirim → klaim tampil (driver file dev).
+  await expect(page.getByTestId("email-note")).toHaveText("✅ Juga sudah dikirim ke email kamu", {
+    timeout: 15_000,
+  });
+  const email = await findEmail(orderCode);
+  expect(email).toMatchObject({ to: "budi@mail.com" });
+  expect(email?.subject).toContain(`Reservasi tiket Teater Bagol E2E — ${orderCode}`);
+  expect(email?.attachments).toEqual([
+    expect.objectContaining({ contentId: "qr-ticket" }) as unknown,
+  ]);
   await page.screenshot({ path: `test-results/buyer-ticket-${info.project.name}.png` });
 
   // LP-11: Cek Pesanan — gagal generik, lalu berhasil.
