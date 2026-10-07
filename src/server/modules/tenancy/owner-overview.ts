@@ -58,7 +58,7 @@ export interface OwnerEventRow {
 
 export async function listOwnerEvents(
   db: Database,
-  filters: { q?: string; status?: EventStatus } = {},
+  filters: { q?: string | undefined; status?: EventStatus | undefined } = {},
   now = new Date(),
 ): Promise<OwnerEventRow[]> {
   const conditions = [
