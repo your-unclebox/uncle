@@ -5,12 +5,12 @@ import { useParams, usePathname } from "next/navigation";
 
 import { cn } from "@/lib/utils";
 
-// Menu Admin (UI-UX Responsive §4). Scan Tiket menyusul (Fase 7).
+// Menu Admin (UI-UX Responsive §4). Scan Tiket menyusul (fase Scanner).
 export function AdminNav() {
   const { eventId } = useParams<{ eventId: string }>();
   const pathname = usePathname();
   const items = [
-    { href: `/admin/events/${eventId}`, label: "▣ Ringkasan" },
+    { href: `/admin/events/${eventId}`, label: "▣ Transaksi" },
     { href: `/admin/events/${eventId}/payment-settings`, label: "⚙ Payment Settings" },
   ];
   return (

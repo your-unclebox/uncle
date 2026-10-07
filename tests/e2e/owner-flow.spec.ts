@@ -111,7 +111,9 @@ test("Owner membuat, melengkapi, dan mempublish event lalu mengundang admin", as
   await expect(admin.getByText("Teater Bagol E2E")).toBeVisible();
   await admin.getByLabel("Password").fill(PASSWORD);
   await admin.getByRole("button", { name: "Aktifkan akun" }).click();
-  await expect(admin.getByText("Halo, Rina")).toBeVisible();
+  // Admin langsung masuk ke Admin Dashboard event (UI-UX User Flow §5).
+  await expect(admin.getByRole("heading", { name: "Daftar Transaksi" })).toBeVisible();
+  await expect(admin.getByRole("heading", { name: "Belum ada transaksi" })).toBeVisible();
 
   // AC-OWN-01.3: admin membuka area Owner → akses ditolak
   await admin.goto("/owner");

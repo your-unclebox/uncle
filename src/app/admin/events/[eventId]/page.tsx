@@ -8,8 +8,10 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { loadAdminEvent } from "@/server/http/admin-pages";
 import { requireAdminPage } from "@/server/http/page-auth";
 
-// Tujuan setelah login/aktivasi admin. Ringkasan & Daftar Transaksi (ADM-03
-// dst.) dibangun di fase Admin Dashboard; sementara banner status QRIS.
+import { TransactionsDashboard } from "./_components/transactions-dashboard";
+
+// Tujuan setelah login/aktivasi admin: banner QRIS + Ringkasan & Daftar
+// Transaksi (ADM-03..06, UI-UX Wireframe §3.1/3.2).
 export default function AdminEventPage({ params }: PageProps<"/admin/events/[eventId]">) {
   return (
     <Suspense fallback={<Skeleton className="h-48" />}>
@@ -32,7 +34,7 @@ async function Content({ eventIdPromise }: { eventIdPromise: Promise<string> }) 
     );
   }
   return (
-    <div className="mx-auto flex max-w-3xl flex-col gap-6">
+    <div className="mx-auto flex max-w-6xl flex-col gap-6">
       <h1 className="text-2xl font-bold md:text-3xl">{data.eventName}</h1>
       {data.paymentConfig.status !== "CONNECTED" ? (
         <Alert tone="pending">
@@ -44,11 +46,7 @@ async function Content({ eventIdPromise }: { eventIdPromise: Promise<string> }) 
           </div>
         </Alert>
       ) : null}
-      <EmptyState
-        icon="🛠"
-        title={`Halo, ${auth.user.name}`}
-        description="Ringkasan, daftar transaksi, dan scan tiket sedang dibangun."
-      />
+      <TransactionsDashboard eventId={eventId} timezone={data.timezone} siteUrl={data.siteUrl} />
     </div>
   );
 }
