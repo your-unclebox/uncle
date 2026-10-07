@@ -108,7 +108,7 @@ export function TransactionDetailDrawer({
             {!current ? (
               <DetailSkeleton />
             ) : "data" in current ? (
-              <DetailBody order={current.data} timezone={timezone} />
+              <DetailBody eventId={eventId} order={current.data} timezone={timezone} />
             ) : current.notFound ? (
               <Alert tone="danger">Transaksi tidak ditemukan.</Alert>
             ) : (
@@ -135,8 +135,36 @@ export function TransactionDetailDrawer({
   );
 }
 
-function DetailBody({ order, timezone }: { order: OrderDetailJson; timezone: string }) {
+function DetailBody({
+  eventId,
+  order,
+  timezone,
+}: {
+  eventId: string;
+  order: OrderDetailJson;
+  timezone: string;
+}) {
   const toast = useToast();
+  const [resending, setResending] = useState(false);
+
+  // ADM-08: kirim ulang email QR Tiket (hanya pesanan Lunas).
+  async function resendTicket() {
+    setResending(true);
+    try {
+      await apiFetch(`/api/admin/events/${eventId}/orders/${order.id}/resend-ticket`, {
+        method: "POST",
+      });
+      toast("Email terkirim");
+    } catch (error) {
+      toast(
+        error instanceof ApiError ? error.problem.title : "Email gagal dikirim. Coba lagi.",
+        "danger",
+      );
+    } finally {
+      setResending(false);
+    }
+  }
+
   async function copyPhone() {
     try {
       await navigator.clipboard.writeText(order.customer.phone);
@@ -186,6 +214,11 @@ function DetailBody({ order, timezone }: { order: OrderDetailJson; timezone: str
           <span className="break-all">{order.customer.email}</span>
         </Row>
       </dl>
+      {order.status === "PAID" ? (
+        <Button variant="secondary" loading={resending} onClick={resendTicket}>
+          {resending ? "Mengirim…" : "Kirim Ulang Email"}
+        </Button>
+      ) : null}
 
       <div className="flex flex-col gap-2 border-t border-border pt-4 text-sm">
         {order.items.map((item) => (

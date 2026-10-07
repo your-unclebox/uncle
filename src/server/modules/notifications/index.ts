@@ -8,3 +8,9 @@ export {
   type OutboxDeps,
   type OutboxRunResult,
 } from "./outbox";
+export {
+  EmailSendFailedError,
+  TicketResendNotAllowedError,
+  type TicketResendBlockReason,
+} from "./errors";
+export { assertTicketResendable, prepareTicketResend } from "./resend-ticket";
