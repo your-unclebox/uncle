@@ -10,3 +10,10 @@ export function normalizeIndonesianPhone(input: string): string | null {
   else national = compact;
   return NATIONAL_MOBILE.test(national) ? `+62${national.slice(1)}` : null;
 }
+
+// Tampilan no HP tersamar di halaman pembeli, mis. +6281234567890 → 0812****7890.
+export function maskPhone(e164: string): string {
+  const national = e164.startsWith("+62") ? `0${e164.slice(3)}` : e164;
+  if (national.length < 8) return national;
+  return `${national.slice(0, 4)}****${national.slice(-4)}`;
+}
