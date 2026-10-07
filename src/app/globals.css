@@ -1,26 +1,85 @@
 @import "tailwindcss";
 
+/*
+ * Token Design System (UI-UX.md §Design System). Dashboard memakai warna
+ * Uncle; landing page kelak menimpa --color-primary dengan warna client.
+ * Warna status tetap dan tidak bisa di-override client.
+ */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --color-primary: #2563eb;
+  --color-primary-hover: #1d4ed8;
+  --color-primary-subtle: #eff6ff;
+  --color-on-primary: #ffffff;
+  --color-secondary: #0f172a;
+
+  --neutral-0: #ffffff;
+  --neutral-50: #f8fafc;
+  --neutral-100: #f1f5f9;
+  --neutral-200: #e2e8f0;
+  --neutral-400: #94a3b8;
+  --neutral-600: #475569;
+  --neutral-900: #0f172a;
+
+  --success-fg: #15803d;
+  --success-bg: #dcfce7;
+  --success-border: #86efac;
+  --danger-fg: #b91c1c;
+  --danger-bg: #fee2e2;
+  --danger-border: #fca5a5;
+  --pending-fg: #b45309;
+  --pending-bg: #fef3c7;
+  --pending-border: #fcd34d;
+  --info-fg: #1d4ed8;
+  --info-bg: #dbeafe;
+  --info-border: #93c5fd;
+  --neutral-fg: #475569;
+  --neutral-bg: #f1f5f9;
+  --neutral-border: #cbd5e1;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-primary: var(--color-primary);
+  --color-primary-hover: var(--color-primary-hover);
+  --color-primary-subtle: var(--color-primary-subtle);
+  --color-on-primary: var(--color-on-primary);
+  --color-surface: var(--neutral-0);
+  --color-page: var(--neutral-50);
+  --color-muted: var(--neutral-100);
+  --color-border: var(--neutral-200);
+  --color-placeholder: var(--neutral-400);
+  --color-subtle: var(--neutral-600);
+  --color-ink: var(--neutral-900);
+  --color-success: var(--success-fg);
+  --color-success-bg: var(--success-bg);
+  --color-success-border: var(--success-border);
+  --color-danger: var(--danger-fg);
+  --color-danger-bg: var(--danger-bg);
+  --color-danger-border: var(--danger-border);
+  --color-pending: var(--pending-fg);
+  --color-pending-bg: var(--pending-bg);
+  --color-pending-border: var(--pending-border);
+  --color-info: var(--info-fg);
+  --color-info-bg: var(--info-bg);
+  --color-info-border: var(--info-border);
+  --color-neutral: var(--neutral-fg);
+  --color-neutral-bg: var(--neutral-bg);
+  --color-neutral-border: var(--neutral-border);
+  /* Inter self-hosted menyusul; sementara system stack (UI-UX §3 fallback). */
+  --font-sans: Inter, -apple-system, "Segoe UI", Roboto, "Noto Sans", Arial, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--neutral-50);
+  color: var(--neutral-900);
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }
