@@ -5,7 +5,7 @@
 > **"Rekomendasi"** beserta alasannya. Semua pertanyaan terbuka dikumpulkan di
 > bagian **Pertanyaan Terbuka** di akhir dokumen.
 >
-> **Status:** Draft v1.2 · **Tanggal:** 7 Oktober 2026 · **Scope:** MVP
+> **Status:** Draft v1.3 · **Tanggal:** 7 Oktober 2026 · **Scope:** MVP
 >
 > **Perubahan v1.1 (patch dari v1, 6 Okt 2026):** hosting final (D5 — Tech
 > Stack §2, Deployment, Integrations §3); batas reservasi Cash mengikuti
@@ -16,6 +16,12 @@
 > **Perubahan v1.2:** `events.ends_at` wajib (overview: Jam Selesai wajib,
 > default Jam Mulai + 3 jam di form); fallback "mulai + 4 jam" dihapus; T20
 > terjawab dan dihapus.
+>
+> **Perubahan v1.3:** target rewrite landing page diganti dari `/_sites/{slug}`
+> menjadi `/sites/{slug}` (folder `src/app/sites/[slug]`), karena di Next.js
+> App Router folder berawalan `_` adalah private folder dan tidak membentuk
+> route. Akses langsung ke `/sites/*` dari host selain `{slug}.uncle.id` → 404
+> (Architecture §1 & §4). Disetujui pemilik project; lihat `AI-CODING-RULES.md`.
 
 > **⚠️ Keputusan baru dari brief DRD yang mengubah dokumen sebelumnya**
 >
@@ -61,7 +67,7 @@ belum ada kebutuhan skala yang membenarkan microservices.
 │                         UNCLE WEB APP (Next.js, modular monolith)                         │
 │                                                                                          │
 │  ┌──────────────── Edge Middleware: Host-based routing & tenant resolution ────────────┐ │
-│  │  {slug}.uncle.id  → rewrite ke /_sites/{slug}/…   (Landing Page + Public API)       │ │
+│  │  {slug}.uncle.id  → rewrite ke /sites/{slug}/…    (Landing Page + Public API)       │ │
 │  │  app.uncle.id     → /owner/…, /admin/{eventId}/…, /api/…                            │ │
 │  │  uncle.id, www    → halaman marketing Uncle                                         │ │
 │  └─────────────────────────────────────────────────────────────────────────────────────┘ │
@@ -134,7 +140,9 @@ GET https://teaterbagol.uncle.id/
  3. Middleware baca Host = "teaterbagol.uncle.id"
       ├─ host ∈ {app, www, apex}        → routing normal
       ├─ subdomain ∈ daftar cadangan    → 404
-      └─ selain itu: slug = "teaterbagol" → rewrite ke /_sites/teaterbagol
+      └─ selain itu: slug = "teaterbagol" → rewrite ke /sites/teaterbagol
+         (route src/app/sites/[slug]; request langsung ke path /sites/* dari
+          host app/www/apex → 404, supaya landing hanya bisa diakses via subdomain)
  4. Server: SELECT event WHERE slug = 'teaterbagol' AND status IN ('ACTIVE','FINISHED')
       ├─ tidak ada / DRAFT → halaman "Event tidak ditemukan" (HTTP 404)
       └─ ada → render landing (konten di-cache; kuota diambil dinamis)
