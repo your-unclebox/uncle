@@ -21,7 +21,7 @@ npm run db:seed             # data contoh event Teater Bagol (idempoten)
 | Perintah | Fungsi |
 |---|---|
 | `npm run lint` / `npm run typecheck` / `npm run format:check` | Lint, typecheck strict, cek format |
-| `npm test` | Semua test (unit + integrasi; integrasi butuh Docker untuk Testcontainers) |
+| `npm test` | Semua test (unit + integrasi; integrasi butuh Docker untuk Testcontainers, atau `TEST_DATABASE_URL=postgres://…/postgres` ke server Postgres superuser yang sudah jalan — DB uji dibuat & dihapus per run) |
 | `npm run test:unit` / `npm run test:integration` | Per project Vitest |
 | `npm run test:coverage` | Test + laporan coverage |
 | `npm run db:generate` | Generate migrasi dari perubahan skema Drizzle |
