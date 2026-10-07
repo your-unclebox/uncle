@@ -6,7 +6,7 @@
 > **Pertanyaan Terbuka** di akhir dokumen.
 >
 > **Contoh kasus:** event **Teater Bagol** (`teaterbagol.uncle.id`).
-> **Status:** Draft v1.5 · **Tanggal:** 7 Oktober 2026 · **Scope:** MVP
+> **Status:** Draft v1.6 · **Tanggal:** 7 Oktober 2026 · **Scope:** MVP
 >
 > **Perubahan v1.1 (patch dari v1, 6 Okt 2026):** (1) email customer **wajib**
 > (BR-TRX-02/03, LP-07); (2) Cash = **Reserved** dengan batas waktu — default
@@ -29,6 +29,10 @@
 > **Perubahan v1.5:** payment gateway QRIS = **DOKU** (bukan Tripay); Payment
 > Settings memakai **2 kredensial: Client ID (BRN/Merchant Code) + Secret Key**
 > (ADM-07, AC-ADM-07.1/07.3). Keputusan pemilik project.
+>
+> **Perubahan v1.6:** ADM-08 (Kirim Ulang QR Tiket) disamakan dengan perilaku
+> yang dibangun: hanya untuk pesanan **Lunas**, email dikirim **langsung**, dan
+> **tidak ada penghitung/riwayat kirim ulang**. Keputusan pemilik project.
 
 ---
 
@@ -224,7 +228,7 @@ bila kapasitas memungkinkan · **Could** = nice-to-have, bisa setelah MVP.
 | ADM-05 | Filter & Cari Transaksi | Filter status bayar, status ambil, metode bayar; cari nama/no HP/kode pesanan. | Must |
 | ADM-06 | Detail Transaksi | Rincian item tiket, total, waktu transaksi, waktu lunas, waktu diambil, siapa yang menandai. | Must |
 | ADM-07 | Payment Settings (QRIS) | Provider **DOKU**, isi **2 kredensial: Client ID (BRN/Merchant Code) dan Secret Key** (dimasking), simpan, tampilkan status koneksi. | Must |
-| ADM-08 | Kirim Ulang QR Tiket | Kirim ulang email QR Tiket ke pembeli. *(Asumsi)* | Could |
+| ADM-08 | Kirim Ulang QR Tiket | Kirim ulang email QR Tiket ke pembeli dari Detail Transaksi. Hanya untuk pesanan **Lunas**; email (template yang sama dengan email tiket pertama) dikirim **langsung**; tidak ada penghitung/riwayat kirim ulang (v1.6). | Could |
 | ADM-09 | Batalkan Transaksi / Tandai Refund | Batalkan transaksi (mis. Cash tidak datang, atau refund di luar sistem) → kuota dikembalikan & QR Tiket tidak berlaku. *(Asumsi — perlu konfirmasi, lihat BR Refund)* | Could |
 | ADM-10 | Export Transaksi (CSV) | Unduh daftar transaksi event. | Could |
 
