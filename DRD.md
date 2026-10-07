@@ -5,7 +5,7 @@
 > **"Rekomendasi"** beserta alasannya. Semua pertanyaan terbuka dikumpulkan di
 > bagian **Pertanyaan Terbuka** di akhir dokumen.
 >
-> **Status:** Draft v1.3 · **Tanggal:** 7 Oktober 2026 · **Scope:** MVP
+> **Status:** Draft v1.4 · **Tanggal:** 7 Oktober 2026 · **Scope:** MVP
 >
 > **Perubahan v1.1 (patch dari v1, 6 Okt 2026):** hosting final (D5 — Tech
 > Stack §2, Deployment, Integrations §3); batas reservasi Cash mengikuti
@@ -22,6 +22,11 @@
 > App Router folder berawalan `_` adalah private folder dan tidak membentuk
 > route. Akses langsung ke `/sites/*` dari host selain `{slug}.uncle.id` → 404
 > (Architecture §1 & §4). Disetujui pemilik project; lihat `AI-CODING-RULES.md`.
+>
+> **Perubahan v1.4:** event **Draft boleh disimpan hanya dengan nama**
+> (PRD AC-OWN-04.1, disetujui pemilik project). `slug`, `starts_at`, `ends_at`
+> menjadi nullable; CHECK `ck_events_non_draft_complete` mewajibkan ketiganya
+> untuk status selain `DRAFT` (BR-EVT-04, BR-EVT-09).
 
 > **⚠️ Keputusan baru dari brief DRD yang mengubah dokumen sebelumnya**
 >
@@ -395,12 +400,12 @@ bukan batas tenant)
 |---|---|---|
 | `id` | uuid PK | = tenant id |
 | `client_id` | uuid FK → clients NULL | |
-| `slug` | citext UNIQUE NOT NULL | CHECK `slug ~ '^[a-z0-9](?:[a-z0-9-]{1,28}[a-z0-9])$'` + bukan subdomain cadangan (tabel `reserved_slugs`). |
+| `slug` | citext UNIQUE NULL | Boleh kosong selama `DRAFT`; wajib untuk status lain (CHECK `ck_events_non_draft_complete`). CHECK `slug ~ '^[a-z0-9](?:[a-z0-9-]{1,28}[a-z0-9])$'` + bukan subdomain cadangan (tabel `reserved_slugs`). |
 | `status` | enum `DRAFT`, `ACTIVE`, `FINISHED`, `ARCHIVED` | PRD BR-EVT-03. |
 | `sales_open` | boolean default true | Tutup penjualan tanpa unpublish (OWN-14). |
 | `name`, `description_html` | text | HTML disanitasi server-side. |
 | `category`, `event_type` | text | Mis. "Teater", "Di lokasi". |
-| `starts_at`, `ends_at` | timestamptz NOT NULL | Dari form Info Umum: Tanggal + Jam Mulai + **Jam Selesai (wajib)**. Default `ends_at = starts_at + 3 jam` diisi di form (UI), bukan di DB. CHECK `ends_at > starts_at`. `ends_at` = basis default batas reservasi Cash (D6) & penanda `FINISHED`. |
+| `starts_at`, `ends_at` | timestamptz NULL | Boleh kosong selama `DRAFT` (AC-OWN-04.1); **wajib** untuk status lain (CHECK `ck_events_non_draft_complete`, BR-EVT-04). Dari form Info Umum: Tanggal + Jam Mulai + **Jam Selesai (wajib saat publish)**. Default `ends_at = starts_at + 3 jam` diisi di form (UI), bukan di DB. CHECK `ends_at > starts_at`. `ends_at` = basis default batas reservasi Cash (D6) & penanda `FINISHED`. |
 | `timezone` | text default `Asia/Jakarta` | |
 | `venue_name`, `venue_address`, `maps_url` | text | |
 | `venue_lat`, `venue_lng` | numeric(9,6) NULL | |
