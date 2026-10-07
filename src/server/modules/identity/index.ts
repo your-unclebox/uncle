@@ -25,3 +25,4 @@ export {
   revokeSession,
   type AuthContext,
 } from "./sessions";
+export { findUserNames } from "./user-names";

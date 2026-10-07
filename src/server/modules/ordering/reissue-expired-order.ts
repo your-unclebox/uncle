@@ -3,9 +3,8 @@ import "server-only";
 import { and, eq } from "drizzle-orm";
 
 import { generateToken, sha256 } from "@/lib/crypto/tokens";
-import { toLocalDateKey } from "@/lib/datetime";
 import { isUniqueViolation } from "@/server/db/pg-error";
-import { auditLogs, emailOutbox, events, orderItems, orders, tickets } from "@/server/db/schema";
+import { auditLogs, emailOutbox, orderItems, orders, tickets } from "@/server/db/schema";
 import { parseInput } from "@/server/http/validation-error";
 import { issueTicket, rebuildTicketQrPayload } from "@/server/modules/ticketing";
 import type { TenantScopedRepository } from "@/server/tenancy";
@@ -19,6 +18,7 @@ import {
   OrderNotFoundError,
   PriceChangedError,
 } from "./errors";
+import { isEventOperational } from "./event-operational";
 import { insertOrderWithUniqueCode } from "./insert-order";
 import { initialOrderStatus } from "./order-state-machine";
 import { computeOrderTotal } from "./pricing";
@@ -36,13 +36,6 @@ export interface ReissueResult {
   readonly ticket: typeof tickets.$inferSelect;
   readonly qrPayload: string;
   readonly replayed: boolean;
-}
-
-// Scanner boleh dipakai sampai akhir hari event (PRD BR-EVT-08, DRD §Database 5.2a).
-function isEventOperational(event: typeof events.$inferSelect, now: Date): boolean {
-  if (event.status === "ACTIVE") return true;
-  if (event.status !== "FINISHED" || !event.endsAt) return false;
-  return toLocalDateKey(now, event.timezone) <= toLocalDateKey(event.endsAt, event.timezone);
 }
 
 /**

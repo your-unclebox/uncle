@@ -80,3 +80,29 @@ export const publicOrderRequestSchema = z
   .strict();
 
 export type PublicOrderRequest = z.input<typeof publicOrderRequestSchema>;
+
+// Query GET /api/admin/events/{eventId}/orders (DRD API §5, ADM-04/05).
+export const adminOrderListQuerySchema = z
+  .object({
+    status: z
+      .enum(["PENDING_PAYMENT", "RESERVED", "PAID", "EXPIRED", "CANCELLED", "REFUNDED"])
+      .optional(),
+    pickup: z.enum(["pending", "done"]).optional(),
+    method: z.enum(["QRIS", "CASH"]).optional(),
+    q: z.string().trim().max(100).optional(),
+    // Default: sembunyikan checkout QRIS yang ditinggal & order kedaluwarsa (UI-UX §3.1).
+    includeUnfinished: z
+      .enum(["true", "false"])
+      .optional()
+      .transform((value) => value === "true"),
+    page: z.coerce.number().int().min(1).max(10_000).default(1),
+    pageSize: z.coerce.number().int().min(1).max(100).default(25),
+  })
+  .strip();
+
+export type AdminOrderListQuery = z.output<typeof adminOrderListQuerySchema>;
+
+// Body POST …/orders/{orderId}/confirm-cash (BR-PAY-04, SCN-04).
+export const confirmCashInputSchema = z
+  .object({ cashReceived: z.literal(true, 'Centang "Sudah terima uang" dulu') })
+  .strict();

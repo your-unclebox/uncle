@@ -101,3 +101,22 @@ export class ActorRequiredError extends DomainError {
     super("Aksi ini membutuhkan actorUserId di TenantContext");
   }
 }
+
+// confirm-cash (DRD API §5): hanya Cash RESERVED. QRIS tidak bisa Lunas manual (BR-PAY-03).
+// Kode baru (belum ada di DRD) — DRD hanya menyebut "409 bila status bukan RESERVED".
+export class OrderNotReservedError extends DomainError {
+  readonly code = "ORDER_NOT_RESERVED";
+  readonly status = 409;
+  constructor(readonly orderStatus: string) {
+    super("Hanya reservasi Cash yang belum bayar yang bisa dikonfirmasi Lunas");
+  }
+}
+
+// Kode baru (belum ada di DRD) — "409 bila … sudah kedaluwarsa" (confirm-cash).
+export class ReservationExpiredError extends DomainError {
+  readonly code = "RESERVATION_EXPIRED";
+  readonly status = 409;
+  constructor() {
+    super("Reservasi sudah kedaluwarsa, kuota sudah dilepas");
+  }
+}
