@@ -1,3 +1,4 @@
+import { kickEmailOutbox } from "@/server/http/email-dispatch";
 import { json } from "@/server/http/json";
 import { route, withOwnerEvent } from "@/server/http/route";
 import { resendInvitation } from "@/server/modules/identity";
@@ -12,6 +13,7 @@ export const POST = route(
     const { invitation, token } = await withOwnerEvent(request, eventId, (repo) =>
       resendInvitation(repo, invitationId),
     );
+    kickEmailOutbox();
     return json({
       invitation: { id: invitation.id, expiresAt: invitation.expiresAt },
       inviteUrl: `${new URL(request.url).origin}/undangan/${token}`,

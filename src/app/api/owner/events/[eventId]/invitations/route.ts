@@ -1,3 +1,4 @@
+import { kickEmailOutbox } from "@/server/http/email-dispatch";
 import { json } from "@/server/http/json";
 import { readJson } from "@/server/http/request";
 import { route, withOwnerEvent } from "@/server/http/route";
@@ -19,6 +20,7 @@ export const POST = route(async (request: Request, ctx: Ctx) => {
   const { invitation, token } = await withOwnerEvent(request, eventId, (repo, auth) =>
     inviteAdmin(repo, body, { invitedBy: auth.user.id }),
   );
+  kickEmailOutbox();
   return json(
     {
       invitation: {

@@ -9,6 +9,7 @@ import { runReconcileQris } from "@/server/jobs/reconcile-qris";
 import { UnauthenticatedError } from "@/server/modules/identity/errors";
 
 import { DomainError } from "./domain-error";
+import { runEmailOutbox } from "./email-dispatch";
 
 // Kode baru (internal) — nama job tidak dikenal.
 class UnknownJobError extends DomainError {
@@ -23,6 +24,7 @@ class UnknownJobError extends DomainError {
 const JOBS = {
   "expire-orders": () => expireDueOrders(getDb()),
   "reconcile-qris": () => runReconcileQris(getDb()),
+  "process-email-outbox": () => runEmailOutbox(),
 } as const;
 
 function assertCronSecret(request: Request): void {

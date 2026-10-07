@@ -1,10 +1,10 @@
 import "server-only";
 
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 
 import { maskPhone, normalizeIndonesianPhone } from "@/lib/phone";
-import { orderItems, orders, paymentTransactions, tickets } from "@/server/db/schema";
+import { emailOutbox, orderItems, orders, paymentTransactions, tickets } from "@/server/db/schema";
 import { parseInput } from "@/server/http/validation-error";
 import { rebuildTicketQrPayload } from "@/server/modules/ticketing";
 import type { TenantScopedRepository } from "@/server/tenancy";
@@ -98,6 +98,25 @@ async function activePayment(repo: TenantScopedRepository, order: OrderRow) {
     : null;
 }
 
+// Status email QR Tiket (UI-UX States: klaim "sudah dikirim" hanya bila SENT).
+async function ticketEmailStatus(repo: TenantScopedRepository, orderId: string) {
+  const [row] = await repo.tx
+    .select({ status: emailOutbox.status })
+    .from(emailOutbox)
+    .where(
+      repo.scope(
+        emailOutbox,
+        and(
+          eq(emailOutbox.orderId, orderId),
+          inArray(emailOutbox.type, ["TICKET_ISSUED", "CASH_RESERVATION"]),
+        ),
+      ),
+    )
+    .orderBy(desc(emailOutbox.createdAt))
+    .limit(1);
+  return row?.status ?? null;
+}
+
 /** Order + QR Tiket untuk customer (Step 5, halaman pesanan, Cek Pesanan). */
 export async function getCustomerOrder(
   repo: TenantScopedRepository,
@@ -106,10 +125,11 @@ export async function getCustomerOrder(
 ) {
   const found = await authorizeCustomerOrder(repo, params, deps);
   const order = await expireIfDue(repo, found, deps.now);
-  const [items, ticket, payment] = await Promise.all([
+  const [items, ticket, payment, emailStatus] = await Promise.all([
     repo.findMany(orderItems, eq(orderItems.orderId, order.id)),
     repo.findFirst(tickets, eq(tickets.orderId, order.id)),
     activePayment(repo, order),
+    ticketEmailStatus(repo, order.id),
   ]);
   return {
     code: order.orderCode,
@@ -126,6 +146,7 @@ export async function getCustomerOrder(
       unitPrice: Number(item.unitPrice),
     })),
     payment,
+    emailStatus,
     ticket: ticket
       ? {
           status: ticket.status,

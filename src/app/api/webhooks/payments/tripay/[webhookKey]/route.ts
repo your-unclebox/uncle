@@ -1,3 +1,4 @@
+import { kickEmailOutbox } from "@/server/http/email-dispatch";
 import { json } from "@/server/http/json";
 import { receiveTripayWebhook } from "@/server/http/payment-actions";
 import { route } from "@/server/http/route";
@@ -9,5 +10,6 @@ type Ctx = RouteContext<"/api/webhooks/payments/tripay/[webhookKey]">;
 export const POST = route(async (request: Request, ctx: Ctx) => {
   const { webhookKey } = await ctx.params;
   const result = await receiveTripayWebhook(request, webhookKey);
+  kickEmailOutbox();
   return json(result.body, { status: result.status });
 });

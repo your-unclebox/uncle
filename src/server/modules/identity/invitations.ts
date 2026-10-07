@@ -113,7 +113,7 @@ export async function inviteAdmin(
     invitedBy: options.invitedBy,
     expiresAt: new Date(now.getTime() + INVITATION_TTL_MS),
   });
-  await enqueueInviteEmail(repo, invitation);
+  await enqueueInviteEmail(repo, invitation, token);
   return { invitation, token };
 }
 
@@ -132,7 +132,7 @@ export async function resendInvitation(
     eq(invitations.id, invitationId),
   );
   if (!invitation) throw new InvitationInvalidError();
-  await enqueueInviteEmail(repo, invitation);
+  await enqueueInviteEmail(repo, invitation, token);
   return { invitation, token };
 }
 
@@ -205,15 +205,17 @@ export async function listAdminAccess(
   ];
 }
 
-// Email undangan dikirim di fase notifikasi; isi link/token belum diputuskan.
+// Email undangan berisi link /undangan/{token}. DB hanya menyimpan hash token;
+// token mentah ikut di payload outbox dan dihapus setelah email diproses.
 async function enqueueInviteEmail(
   repo: TenantScopedRepository,
   invitation: typeof invitations.$inferSelect,
+  token: string,
 ): Promise<void> {
   await repo.insert(emailOutbox, {
     type: "ADMIN_INVITE",
     toEmail: invitation.email,
-    payload: { invitationId: invitation.id },
+    payload: { invitationId: invitation.id, token },
   });
 }
 
