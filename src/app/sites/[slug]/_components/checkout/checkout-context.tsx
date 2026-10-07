@@ -6,10 +6,12 @@ import { apiFetch } from "@/lib/api-client";
 import type { PublicTicketType } from "@/server/modules/catalog/public-ticket-types";
 import type { PublicEvent } from "@/server/modules/tenancy/storefront";
 
+import type { TicketOrderView } from "./ticket-ready";
+
 // State checkout Step 1–5 (UI-UX §1.3), dipakai section Tiket, sidebar
 // Ringkasan (desktop), dan sticky bottom bar (mobile).
 
-export type CheckoutStep = "select" | "customer" | "payment" | "done";
+export type CheckoutStep = "select" | "customer" | "payment" | "pay" | "done";
 export type PaymentChoice = "CASH" | "QRIS";
 
 export interface CustomerInput {
@@ -27,7 +29,13 @@ export interface CreatedOrder {
     readonly expiresAt: string | null;
     readonly items: ReadonlyArray<{ name: string; quantity: number; unitPrice: number }>;
   };
-  readonly ticket: { readonly status: string; readonly qrPayload: string };
+  // Cash: QR Tiket langsung; QRIS: QR pembayaran dulu (Step 4).
+  readonly ticket: { readonly status: string; readonly qrPayload: string } | null;
+  readonly payment: {
+    readonly method: "QRIS";
+    readonly qrString: string;
+    readonly expiresAt: string | null;
+  } | null;
   readonly accessToken: string;
 }
 
@@ -49,12 +57,15 @@ interface CheckoutValue {
   readonly customer: CustomerInput;
   readonly method: PaymentChoice;
   readonly created: CreatedOrder | null;
+  /** Order QRIS yang sudah Lunas (dari endpoint tiket), untuk Step 5. */
+  readonly paidOrder: TicketOrderView | null;
   maxFor(ticketType: PublicTicketType): number;
   setQuantity(ticketTypeId: string, quantity: number): void;
   setCustomer(customer: CustomerInput): void;
   setMethod(method: PaymentChoice): void;
   goTo(step: CheckoutStep): void;
   complete(created: CreatedOrder): void;
+  markPaid(order: TicketOrderView): void;
   refreshTicketTypes(): Promise<readonly PublicTicketType[]>;
   reset(): void;
 }
@@ -86,6 +97,7 @@ export function CheckoutProvider({
   const [customer, setCustomer] = useState<CustomerInput>({ name: "", phone: "", email: "" });
   const [method, setMethod] = useState<PaymentChoice>(event.paymentMethods.qris ? "QRIS" : "CASH");
   const [created, setCreated] = useState<CreatedOrder | null>(null);
+  const [paidOrder, setPaidOrder] = useState<TicketOrderView | null>(null);
 
   const lines = useMemo(
     () =>
@@ -145,12 +157,19 @@ export function CheckoutProvider({
 
   const complete = useCallback((order: CreatedOrder) => {
     setCreated(order);
+    setPaidOrder(null);
+    setStep(order.payment ? "pay" : "done");
+  }, []);
+
+  const markPaid = useCallback((order: TicketOrderView) => {
+    setPaidOrder(order);
     setStep("done");
   }, []);
 
   const reset = useCallback(() => {
     setQuantities({});
     setCreated(null);
+    setPaidOrder(null);
     setStep("select");
     void refreshTicketTypes().catch(() => undefined);
     requestAnimationFrame(scrollToTickets);
@@ -169,12 +188,14 @@ export function CheckoutProvider({
     customer,
     method,
     created,
+    paidOrder,
     maxFor,
     setQuantity,
     setCustomer,
     setMethod,
     goTo,
     complete,
+    markPaid,
     refreshTicketTypes,
     reset,
   };
