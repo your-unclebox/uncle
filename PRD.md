@@ -6,7 +6,7 @@
 > **Pertanyaan Terbuka** di akhir dokumen.
 >
 > **Contoh kasus:** event **Teater Bagol** (`teaterbagol.uncle.id`).
-> **Status:** Draft v1.2 · **Tanggal:** 7 Oktober 2026 · **Scope:** MVP
+> **Status:** Draft v1.3 · **Tanggal:** 7 Oktober 2026 · **Scope:** MVP
 >
 > **Perubahan v1.1 (patch dari v1, 6 Okt 2026):** (1) email customer **wajib**
 > (BR-TRX-02/03, LP-07); (2) Cash = **Reserved** dengan batas waktu — default
@@ -19,6 +19,9 @@
 > Selesai**; **Jam Selesai wajib** (default terisi Jam Mulai + 3 jam, bisa
 > diubah) dan menjadi basis default batas reservasi Cash (OWN-04, BR-EVT-04,
 > BR-EVT-08, BR-TRX-08, AC-OWN-04.2/04.3).
+>
+> **Perubahan v1.3:** LP-04 menampilkan rentang waktu Jam Mulai–Jam Selesai
+> (format `HH:MM–HH:MM WIB`).
 
 ---
 
@@ -225,7 +228,7 @@ bila kapasitas memungkinkan · **Could** = nice-to-have, bisa setelah MVP.
 | LP-01 | Routing Subdomain | `{slug}.uncle.id` menampilkan landing page event terkait dengan branding client. | Must |
 | LP-02 | Header Minimal & Hero | Logo client, tombol "Cek Pesanan", banner/cover, nama event, tanggal & jam, lokasi + "Lihat peta", tombol "Pilih Tiket". Tanpa navigasi marketplace. | Must |
 | LP-03 | Tab Navigasi Sticky | Deskripsi · Dokumentasi · Tiket · Lokasi. | Should |
-| LP-04 | Section Deskripsi | Tanggal, jam, kategori, tipe, paragraf deskripsi, Kebijakan Pengembalian (expand/collapse). | Must |
+| LP-04 | Section Deskripsi | Tanggal, **rentang waktu Jam Mulai–Jam Selesai** (format `HH:MM–HH:MM WIB`, mis. `19:00–22:00 WIB`), kategori, tipe, paragraf deskripsi, Kebijakan Pengembalian (expand/collapse). | Must |
 | LP-05 | Section Dokumentasi | Galeri foto & video. | Must |
 | LP-06 | Pilih Tiket (Step 1) | Daftar jenis tiket, harga, kuota tersisa, stepper [− n +], subtotal; boleh campur jenis. | Must |
 | LP-07 | Data Diri (Step 2) | Nama, No. HP, dan **Email — ketiganya wajib**. Email dipakai untuk mengirim salinan QR Tiket, bukan untuk login (BR-TRX-03). | Must |

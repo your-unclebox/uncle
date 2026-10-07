@@ -116,7 +116,7 @@ untuk satu event saja.
 │            [   BANNER / COVER EVENT   ]          │
 │                                                   │  Hero
 │  Teater Bagol — "Nama Lakon"                      │
-│  📅 Sabtu, 20 Des 2026 · 19:00 WIB                │
+│  📅 Sabtu, 20 Des 2026 · 19:00–22:00 WIB           │
 │  📍 Gedung Kesenian, Jakarta     [Lihat peta]     │
 │                                                   │
 │              [   Pilih Tiket   ]                 │
@@ -126,7 +126,7 @@ untuk satu event saja.
 │  Deskripsi | Dokumentasi | Tiket | Lokasi         │  Tab nav (sticky)
 ├─────────────────────────────────────────────────┤
 │  ## Deskripsi                                     │
-│  Tanggal: 20 Des 2026   Jam: 19:00 WIB            │
+│  Tanggal: 20 Des 2026   Jam: 19:00–22:00 WIB      │
 │  Kategori: Teater       Tipe: Di lokasi           │
 │                                                   │
 │  [ Paragraf deskripsi lengkap event ... ]         │

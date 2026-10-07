@@ -8,7 +8,7 @@
 > no HP) ditandai **(ikut asumsi PRD)**.
 >
 > **Contoh kasus:** event **Teater Bagol** (`teaterbagol.uncle.id`).
-> **Status:** Draft v1.2 · **Tanggal:** 7 Oktober 2026 · **Scope:** MVP
+> **Status:** Draft v1.3 · **Tanggal:** 7 Oktober 2026 · **Scope:** MVP
 >
 > **Perubahan v1.1 (patch dari v1, 6 Okt 2026):** (1) field **Email wajib** di
 > Step 2 (bukan opsional; untuk kirim salinan QR Tiket, bukan login);
@@ -19,6 +19,10 @@
 > **Perubahan v1.2:** form Info Umum memakai field **Tanggal, Jam Mulai, Jam
 > Selesai** (Jam Selesai wajib, otomatis Jam Mulai + 3 jam, bisa diubah) —
 > Wireframe §2.3 & §2.4, User Flow §4, `DateTimePicker`, States Owner.
+>
+> **Perubahan v1.3:** Hero & Deskripsi landing page (desktop & mobile)
+> menampilkan rentang **Jam Mulai–Jam Selesai** format `HH:MM–HH:MM WIB`
+> (mis. `19:00–22:00 WIB`) — Wireframe §1.1, §1.2.
 
 **Tiga permukaan utama:**
 
@@ -238,7 +242,7 @@ dalam section **Tiket**, sesuai overview.
 │ │                    BANNER / COVER EVENT (16:9, max-h 480)            │ │ Hero
 │ └──────────────────────────────────────────────────────────────────────┘ │
 │  Teater Bagol — "Nama Lakon"                       ┌──────────────────┐  │
-│  📅 Sabtu, 20 Des 2026 · 19:00 WIB                 │ Mulai Rp 75.000  │  │
+│  📅 Sabtu, 20 Des 2026 · 19:00–22:00 WIB           │ Mulai Rp 75.000  │  │
 │  📍 Gedung Kesenian, Jakarta  [Lihat peta]         │ [  Pilih Tiket  ]│  │ CTA card
 │                                                    └──────────────────┘  │
 ├──────────────────────────────────────────────────────────────────────────┤
@@ -248,7 +252,7 @@ dalam section **Tiket**, sesuai overview.
 │  ━━━━━━━━━                                                               │ (underline = section aktif)
 ├──────────────────────────────────────────────┬───────────────────────────┤
 │  ## Deskripsi                                │  RINGKASAN PESANAN        │
-│  Tanggal: 20 Des 2026    Jam: 19:00 WIB      │  (sticky sidebar, muncul  │
+│  Tanggal: 20 Des 2026  Jam: 19:00–22:00 WIB  │  (sticky sidebar, muncul  │
 │  Kategori: Teater        Tipe: Di lokasi     │   setelah ≥ 1 tiket       │
 │                                              │   dipilih)                │
 │  Paragraf deskripsi lengkap event ...        │                           │
@@ -275,6 +279,10 @@ dalam section **Tiket**, sesuai overview.
 └──────────────────────────────────────────────────────────────────────────┘
 ```
 
+**Format waktu event (Hero & Deskripsi):** `HH:MM–HH:MM WIB` = Jam Mulai–Jam
+Selesai (24 jam, en dash `–` tanpa spasi, zona waktu sekali di akhir), mis.
+`19:00–22:00 WIB`. Berlaku sama di desktop & mobile.
+
 *Rekomendasi — bisa disesuaikan branding client:* sidebar "Ringkasan Pesanan"
 yang sticky hanya di desktop; label kecil "Powered by Uncle" di footer
 (opsional, bisa disembunyikan untuk white-label penuh).
@@ -291,7 +299,8 @@ yang sticky hanya di desktop; label kecil "Powered by Uncle" di footer
 ├────────────────────────────┤
 │ Teater Bagol —             │
 │ "Nama Lakon"               │
-│ 📅 Sab, 20 Des 2026·19:00  │
+│ 📅 Sab, 20 Des 2026        │
+│    19:00–22:00 WIB         │
 │ 📍 Gedung Kesenian, Jkt    │
 │    [Lihat peta]            │
 ├────────────────────────────┤
@@ -302,7 +311,7 @@ yang sticky hanya di desktop; label kecil "Powered by Uncle" di footer
 ├────────────────────────────┤
 │ ## Deskripsi               │
 │ Tanggal  20 Des 2026       │
-│ Jam      19:00 WIB         │
+│ Jam      19:00–22:00 WIB   │
 │ Kategori Teater            │
 │ Tipe     Di lokasi         │
 │ Paragraf deskripsi ...     │
