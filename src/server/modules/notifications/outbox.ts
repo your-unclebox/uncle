@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, asc, eq, inArray, lt, lte, or, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, lte, or, sql } from "drizzle-orm";
 
 import { EmailSendFailure, type EmailSender } from "@/integrations/email/email-sender";
 import { logger } from "@/lib/logger";
@@ -15,7 +15,7 @@ type OutboxRow = typeof emailOutbox.$inferSelect;
 const BACKOFF_MINUTES = [1, 5, 15, 60, 240] as const;
 export const MAX_EMAIL_ATTEMPTS = BACKOFF_MINUTES.length;
 // SENDING lebih lama dari ini dianggap worker mati → diklaim ulang.
-const STUCK_SENDING_MS = 10 * 60_000;
+const STUCK_SENDING_SECONDS = 10 * 60;
 const MINUTE_MS = 60_000;
 
 export interface OutboxDeps extends Omit<ComposeDeps, "now"> {
@@ -42,9 +42,11 @@ async function claimBatch(db: Database, now: Date, limit: number): Promise<Outbo
           lte(emailOutbox.nextAttemptAt, now),
           or(
             eq(emailOutbox.status, "PENDING"),
+            // updated_at diisi trigger dengan jam DB → bandingkan dengan jam DB juga,
+            // bukan `now` aplikasi (beda jam = baris aktif dianggap macet, terkirim ganda).
             and(
               eq(emailOutbox.status, "SENDING"),
-              lt(emailOutbox.updatedAt, new Date(now.getTime() - STUCK_SENDING_MS)),
+              sql`${emailOutbox.updatedAt} < now() - make_interval(secs => ${STUCK_SENDING_SECONDS})`,
             ),
           ),
         ),
@@ -55,7 +57,7 @@ async function claimBatch(db: Database, now: Date, limit: number): Promise<Outbo
     if (due.length === 0) return [];
     return tx
       .update(emailOutbox)
-      .set({ status: "SENDING", attempts: sql`${emailOutbox.attempts} + 1`, updatedAt: now })
+      .set({ status: "SENDING", attempts: sql`${emailOutbox.attempts} + 1` })
       .where(
         inArray(
           emailOutbox.id,
@@ -78,13 +80,12 @@ async function finish(
   db: Database,
   row: OutboxRow,
   values: Partial<typeof emailOutbox.$inferInsert>,
-  now: Date,
   final: boolean,
 ) {
   const payload = final ? scrubbedPayload(row) : undefined;
   await db
     .update(emailOutbox)
-    .set({ ...values, ...(payload ? { payload } : {}), updatedAt: now })
+    .set({ ...values, ...(payload ? { payload } : {}) })
     .where(eq(emailOutbox.id, row.id));
 }
 
@@ -104,7 +105,7 @@ export async function processEmailOutbox(db: Database, deps: OutboxDeps): Promis
     try {
       const composed = await composeOutboxEmail(db, row, { ...deps, now });
       if (!composed.ok) {
-        await finish(db, row, { status: "FAILED", lastError: composed.reason }, now, true);
+        await finish(db, row, { status: "FAILED", lastError: composed.reason }, true);
         failed += 1;
         continue;
       }
@@ -113,7 +114,6 @@ export async function processEmailOutbox(db: Database, deps: OutboxDeps): Promis
         db,
         row,
         { status: "SENT", providerMessageId, sentAt: now, lastError: null },
-        now,
         true,
       );
       sent += 1;
@@ -121,7 +121,7 @@ export async function processEmailOutbox(db: Database, deps: OutboxDeps): Promis
       const permanent = error instanceof EmailSendFailure && error.kind === "permanent";
       const lastError = (error instanceof Error ? error.message : String(error)).slice(0, 500);
       if (permanent || row.attempts >= MAX_EMAIL_ATTEMPTS) {
-        await finish(db, row, { status: "FAILED", lastError }, now, true);
+        await finish(db, row, { status: "FAILED", lastError }, true);
         failed += 1;
       } else {
         const delay = BACKOFF_MINUTES[row.attempts - 1] ?? BACKOFF_MINUTES[0];
@@ -133,7 +133,6 @@ export async function processEmailOutbox(db: Database, deps: OutboxDeps): Promis
             lastError,
             nextAttemptAt: new Date(now.getTime() + delay * MINUTE_MS),
           },
-          now,
           false,
         );
         retried += 1;
