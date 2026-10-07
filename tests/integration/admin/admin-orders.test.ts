@@ -102,7 +102,7 @@ describe("Admin Dashboard: ringkasan, daftar, detail, konfirmasi Cash", () => {
   });
 
   it("daftar default menyembunyikan pesanan belum selesai; baris lengkap & multi jenis (AC-ADM-04.1/04.2)", async () => {
-    const list = await asAdmin((repo) => listAdminOrders(repo, {}));
+    const list = await asAdmin((repo) => listAdminOrders(repo, {}, BEFORE_EVENT));
     expect(list.total).toBe(3);
     expect(list.orders.map((o) => o.code)).not.toContain(pendingQris.orderCode);
     const rowBudi = list.orders.find((o) => o.id === budi.order.id);
@@ -119,24 +119,30 @@ describe("Admin Dashboard: ringkasan, daftar, detail, konfirmasi Cash", () => {
       { name: "VIP", quantity: 1 },
     ]);
 
-    const all = await asAdmin((repo) => listAdminOrders(repo, { includeUnfinished: "true" }));
+    const all = await asAdmin((repo) =>
+      listAdminOrders(repo, { includeUnfinished: "true" }, BEFORE_EVENT),
+    );
     expect(all.total).toBe(4);
   });
 
   it("filter status bayar / ambil / metode + jumlah hasil (AC-ADM-05.1)", async () => {
-    const unpaid = await asAdmin((repo) => listAdminOrders(repo, { status: "RESERVED" }));
+    const unpaid = await asAdmin((repo) =>
+      listAdminOrders(repo, { status: "RESERVED" }, BEFORE_EVENT),
+    );
     expect(unpaid.orders.map((o) => o.id)).toEqual([siti.order.id]);
     expect(unpaid.total).toBe(1);
 
     const notPicked = await asAdmin((repo) =>
-      listAdminOrders(repo, { pickup: "pending", method: "QRIS" }),
+      listAdminOrders(repo, { pickup: "pending", method: "QRIS" }, BEFORE_EVENT),
     );
     expect(notPicked.orders.map((o) => o.id)).toEqual([budi.order.id]);
 
-    const picked = await asAdmin((repo) => listAdminOrders(repo, { pickup: "done" }));
+    const picked = await asAdmin((repo) => listAdminOrders(repo, { pickup: "done" }, BEFORE_EVENT));
     expect(picked.orders.map((o) => o.id)).toEqual([andi.order.id]);
 
-    const pending = await asAdmin((repo) => listAdminOrders(repo, { status: "PENDING_PAYMENT" }));
+    const pending = await asAdmin((repo) =>
+      listAdminOrders(repo, { status: "PENDING_PAYMENT" }, BEFORE_EVENT),
+    );
     expect(pending.orders.map((o) => o.id)).toEqual([pendingQris.id]);
   });
 
@@ -146,32 +152,52 @@ describe("Admin Dashboard: ringkasan, daftar, detail, konfirmasi Cash", () => {
     ["0813112", "Siti Rahma"],
     ["andi p", "Andi Pratama"],
   ])("cari %s → %s (AC-ADM-05.2)", async (q, name) => {
-    const list = await asAdmin((repo) => listAdminOrders(repo, { q }));
+    const list = await asAdmin((repo) => listAdminOrders(repo, { q }, BEFORE_EVENT));
     expect(list.orders.map((o) => o.customerName)).toEqual([name]);
   });
 
   it("cari kode pesanan; tidak ada hasil → total 0 (AC-ADM-05.3); paging", async () => {
     const byCode = await asAdmin((repo) =>
-      listAdminOrders(repo, { q: budi.order.orderCode.toLowerCase() }),
+      listAdminOrders(repo, { q: budi.order.orderCode.toLowerCase() }, BEFORE_EVENT),
     );
     expect(byCode.orders.map((o) => o.id)).toEqual([budi.order.id]);
 
-    const none = await asAdmin((repo) => listAdminOrders(repo, { q: "tidak-ada%_" }));
+    const none = await asAdmin((repo) => listAdminOrders(repo, { q: "tidak-ada%_" }, BEFORE_EVENT));
     expect(none).toMatchObject({ orders: [], total: 0 });
 
-    const page2 = await asAdmin((repo) => listAdminOrders(repo, { pageSize: "2", page: "2" }));
+    const page2 = await asAdmin((repo) =>
+      listAdminOrders(repo, { pageSize: "2", page: "2" }, BEFORE_EVENT),
+    );
     expect(page2).toMatchObject({ total: 3, page: 2, pageSize: 2 });
     expect(page2.orders).toHaveLength(1);
-    const beyond = await asAdmin((repo) => listAdminOrders(repo, { pageSize: "2", page: "9" }));
+    const beyond = await asAdmin((repo) =>
+      listAdminOrders(repo, { pageSize: "2", page: "9" }, BEFORE_EVENT),
+    );
     expect(beyond).toMatchObject({ orders: [], total: 3 });
 
     await expect(
-      asAdmin((repo) => listAdminOrders(repo, { status: "LUNAS" })),
+      asAdmin((repo) => listAdminOrders(repo, { status: "LUNAS" }, BEFORE_EVENT)),
     ).rejects.toBeInstanceOf(ValidationError);
   });
 
+  it("reservasi lewat batas belum disapu cron → Kedaluwarsa di daftar & detail, tidak ikut 'Belum'", async () => {
+    const late = new Date(EVENT_ENDS_AT.getTime() + 60_000);
+    const unpaid = await asAdmin((repo) => listAdminOrders(repo, { status: "RESERVED" }, late));
+    expect(unpaid.total).toBe(0);
+    const hidden = await asAdmin((repo) => listAdminOrders(repo, {}, late));
+    expect(hidden.orders.map((o) => o.id)).not.toContain(siti.order.id);
+    const expired = await asAdmin((repo) => listAdminOrders(repo, { status: "EXPIRED" }, late));
+    expect(expired.orders.find((o) => o.id === siti.order.id)?.status).toBe("EXPIRED");
+    const detail = await asAdmin((repo) => getAdminOrderDetail(repo, siti.order.id, late));
+    expect(detail.status).toBe("EXPIRED");
+    expect(detail.history.at(-1)?.label).toBe("Kedaluwarsa");
+    // DB tidak diubah oleh pembacaan.
+    const [row] = await db.select().from(orders).where(eq(orders.id, siti.order.id));
+    expect(row?.status).toBe("RESERVED");
+  });
+
   it("detail: item, total, riwayat lunas & diambil oleh admin (ADM-06)", async () => {
-    const detail = await asAdmin((repo) => getAdminOrderDetail(repo, andi.order.id));
+    const detail = await asAdmin((repo) => getAdminOrderDetail(repo, andi.order.id, BEFORE_EVENT));
     expect(detail).toMatchObject({
       code: andi.order.orderCode,
       status: "PAID",
@@ -193,7 +219,7 @@ describe("Admin Dashboard: ringkasan, daftar, detail, konfirmasi Cash", () => {
   it("detail pesanan event lain → tidak ditemukan (AC-ADM-02.2)", async () => {
     const [foreign] = await db.select().from(orders).where(eq(orders.eventId, otherEventId));
     await expect(
-      asAdmin((repo) => getAdminOrderDetail(repo, foreign?.id ?? "")),
+      asAdmin((repo) => getAdminOrderDetail(repo, foreign?.id ?? "", BEFORE_EVENT)),
     ).rejects.toBeInstanceOf(OrderNotFoundError);
   });
 
@@ -213,7 +239,9 @@ describe("Admin Dashboard: ringkasan, daftar, detail, konfirmasi Cash", () => {
         cashConfirmedBy: admin.id,
         paidAt: AT_VENUE,
       });
-      const detail = await asAdmin((repo) => getAdminOrderDetail(repo, order.order.id));
+      const detail = await asAdmin((repo) =>
+        getAdminOrderDetail(repo, order.order.id, BEFORE_EVENT),
+      );
       expect(detail.history.map((h) => h.label)).toContain("Lunas (Cash), oleh Rina");
       const [audit] = await db
         .select()

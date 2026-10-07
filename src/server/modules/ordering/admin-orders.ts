@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, desc, eq, gte, ilike, inArray, notInArray, or, sql, type SQL } from "drizzle-orm";
+import { and, desc, eq, gte, ilike, inArray, or, sql, type SQL } from "drizzle-orm";
 import { z } from "zod";
 
 import { phoneSearchDigits, toNationalPhone } from "@/lib/phone";
@@ -84,6 +84,23 @@ export interface AdminOrderList {
 }
 
 const UNFINISHED: OrderStatus[] = ["PENDING_PAYMENT", "EXPIRED"];
+
+/**
+ * Status yang dilihat admin: hold (PENDING_PAYMENT/RESERVED) yang sudah lewat
+ * expires_at = Kedaluwarsa walau belum disapu cron — konsisten dengan
+ * Ringkasan (BR-RPT-02) dan Scanner (sweep-on-scan).
+ */
+function effectiveStatus(now: Date): SQL<OrderStatus> {
+  return sql<OrderStatus>`(case when ${orders.status} in ('PENDING_PAYMENT', 'RESERVED') and ${orders.expiresAt} < ${now.toISOString()}::timestamptz then 'EXPIRED'::order_status else ${orders.status} end)`;
+}
+
+export function effectiveOrderStatus(
+  order: Pick<Order, "status" | "expiresAt">,
+  now: Date,
+): OrderStatus {
+  const hold = order.status === "PENDING_PAYMENT" || order.status === "RESERVED";
+  return hold && order.expiresAt && order.expiresAt < now ? "EXPIRED" : order.status;
+}
 const escapeLike = (value: string) => value.replace(/[%_\\]/g, "\\$&");
 
 function searchCondition(q: string): SQL | undefined {
@@ -99,12 +116,19 @@ function searchCondition(q: string): SQL | undefined {
 export async function listAdminOrders(
   repo: TenantScopedRepository,
   rawQuery: unknown,
+  now = new Date(),
 ): Promise<AdminOrderList> {
   const query = parseInput(adminOrderListQuerySchema, rawQuery);
+  const status = effectiveStatus(now);
   const conditions: Array<SQL | undefined> = [
-    query.status ? eq(orders.status, query.status) : undefined,
+    query.status ? sql`${status} = ${query.status}::order_status` : undefined,
     // Filter status eksplisit selalu menang atas default "sembunyikan belum selesai".
-    !query.status && !query.includeUnfinished ? notInArray(orders.status, UNFINISHED) : undefined,
+    !query.status && !query.includeUnfinished
+      ? sql`${status} not in (${sql.join(
+          UNFINISHED.map((value) => sql`${value}::order_status`),
+          sql`, `,
+        )})`
+      : undefined,
     query.method ? eq(orders.paymentMethod, query.method) : undefined,
     query.pickup === "done" ? eq(tickets.status, "CHECKED_IN") : undefined,
     query.pickup === "pending" ? eq(tickets.status, "ISSUED") : undefined,
@@ -135,7 +159,7 @@ export async function listAdminOrders(
       customerName: order.customerName,
       customerPhone: toNationalPhone(order.customerPhone),
       paymentMethod: order.paymentMethod,
-      status: order.status,
+      status: effectiveOrderStatus(order, now),
       ticketStatus,
       items: (itemsByOrder.get(order.id) ?? []).map((item) => ({
         name: item.ticketTypeName,
@@ -214,6 +238,7 @@ const PAID_VIA_LABEL: Record<NonNullable<Order["paidVia"]>, string> = {
 export async function getAdminOrderDetail(
   repo: TenantScopedRepository,
   orderId: string,
+  now = new Date(),
 ): Promise<AdminOrderDetail> {
   if (!isUuid(orderId)) throw new OrderNotFoundError();
   const order = await repo.findFirst(orders, eq(orders.id, orderId));
@@ -256,7 +281,8 @@ export async function getAdminOrderDetail(
       label: `${PAID_VIA_LABEL[order.paidVia]}${by(order.cashConfirmedBy)}`,
     });
   }
-  if (order.status === "EXPIRED") {
+  const status = effectiveOrderStatus(order, now);
+  if (status === "EXPIRED") {
     history.push({
       at: ticket?.voidedAt ?? order.expiresAt ?? order.updatedAt,
       label: "Kedaluwarsa",
@@ -283,7 +309,7 @@ export async function getAdminOrderDetail(
   return {
     id: order.id,
     code: order.orderCode,
-    status: order.status,
+    status,
     paymentMethod: order.paymentMethod,
     customer: {
       name: order.customerName,
