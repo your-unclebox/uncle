@@ -1,0 +1,27 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1791360684104,
+      "tag": "0000_extensions_and_app_role",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1791360780031,
+      "tag": "0001_initial_schema",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1791360803810,
+      "tag": "0002_triggers_rls_and_reference_data",
+      "breakpoints": true
+    }
+  ]
+}
