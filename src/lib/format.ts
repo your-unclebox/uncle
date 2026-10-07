@@ -34,3 +34,22 @@ export function formatEventDay(
     year: "numeric",
   }).format(new Date(iso));
 }
+
+// Riwayat transaksi (UI-UX §3.1 Drawer): "12 Nov 2026 10:02".
+export function formatDateTime(iso: string | Date | null, timeZone = "Asia/Jakarta"): string {
+  if (!iso) return "—";
+  const date = new Date(iso);
+  const day = new Intl.DateTimeFormat("id-ID", {
+    timeZone,
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  }).format(date);
+  const time = new Intl.DateTimeFormat("en-GB", {
+    timeZone,
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).format(date);
+  return `${day} ${time}`;
+}

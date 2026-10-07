@@ -17,3 +17,8 @@ export function maskPhone(e164: string): string {
   if (national.length < 8) return national;
   return `${national.slice(0, 4)}****${national.slice(-4)}`;
 }
+
+// Tampilan no HP lengkap (Detail Transaksi admin), mis. +6281234567890 → 081234567890.
+export function formatPhoneNational(e164: string): string {
+  return e164.startsWith("+62") ? `0${e164.slice(3)}` : e164;
+}

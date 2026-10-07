@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { normalizeIndonesianPhone } from "@/lib/phone";
+import { orderStatus, paymentMethod } from "@/server/db/schema/enums";
 
 // Schema input — bisa dipakai ulang di form client (tanpa dependensi server).
 
@@ -80,3 +81,22 @@ export const publicOrderRequestSchema = z
   .strict();
 
 export type PublicOrderRequest = z.input<typeof publicOrderRequestSchema>;
+
+// Query GET /api/admin/events/{eventId}/orders (DRD API §5, ADM-04/05).
+// Nilai query string selalu string → boolean & angka di-parse eksplisit.
+export const adminOrderListQuerySchema = z
+  .object({
+    status: z.enum(orderStatus.enumValues, "Status bayar tidak valid").optional(),
+    pickup: z.enum(["pending", "done"], "Status ambil tidak valid").optional(),
+    method: z.enum(paymentMethod.enumValues, "Metode bayar tidak valid").optional(),
+    q: z.string().trim().max(100, "Maksimal 100 karakter").optional(),
+    includeUnfinished: z
+      .enum(["true", "false"])
+      .optional()
+      .transform((value) => value === "true"),
+    cursor: z.string().max(200).optional(),
+    limit: z.coerce.number().int().min(1).max(100).default(25),
+  })
+  .strict();
+
+export type AdminOrderListQuery = z.output<typeof adminOrderListQuerySchema>;
