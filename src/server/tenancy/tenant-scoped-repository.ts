@@ -90,16 +90,18 @@ export class TenantScopedRepository {
     return rows[0] as T["$inferSelect"];
   }
 
+  // Minimal satu kondisi wajib: update tanpa filter (seluruh tenant) tidak diizinkan.
   async update<T extends TenantTable>(
     table: T,
     values: UpdateValues<T>,
     where: SQL,
+    ...moreConditions: SQL[]
   ): Promise<Array<T["$inferSelect"]>> {
     this.#rejectEventIdOverride(values);
     const rows: unknown[] = await this.#tx
       .update(table as PgTable)
       .set(values)
-      .where(this.scope(table, where))
+      .where(this.scope(table, where, ...moreConditions))
       .returning();
     return rows as Array<T["$inferSelect"]>;
   }
