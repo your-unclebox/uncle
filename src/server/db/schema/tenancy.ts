@@ -34,16 +34,17 @@ export const events = pgTable(
   {
     id: id(),
     clientId: uuid("client_id").references(() => clients.id),
-    slug: citext("slug").notNull().unique(),
+    // Draft boleh tanpa slug & jadwal (AC-OWN-04.1); wajib sebelum non-DRAFT.
+    slug: citext("slug").unique(),
     status: eventStatus("status").notNull().default("DRAFT"),
     salesOpen: boolean("sales_open").notNull().default(true),
     name: text("name").notNull(),
     descriptionHtml: text("description_html"),
     category: text("category"),
     eventType: text("event_type"),
-    startsAt: timestamptz("starts_at").notNull(),
+    startsAt: timestamptz("starts_at"),
     // BR-EVT-09: Jam Selesai wajib; default +3 jam diisi di form, bukan di DB.
-    endsAt: timestamptz("ends_at").notNull(),
+    endsAt: timestamptz("ends_at"),
     timezone: text("timezone").notNull().default("Asia/Jakarta"),
     venueName: text("venue_name"),
     venueAddress: text("venue_address"),
@@ -72,6 +73,11 @@ export const events = pgTable(
   },
   (t) => [
     check("ck_events_ends_after_starts", sql`${t.endsAt} > ${t.startsAt}`),
+    // BR-EVT-04 / BR-EVT-09: event non-Draft wajib punya slug, jam mulai & jam selesai.
+    check(
+      "ck_events_non_draft_complete",
+      sql`${t.status} = 'DRAFT' OR (${t.slug} IS NOT NULL AND ${t.startsAt} IS NOT NULL AND ${t.endsAt} IS NOT NULL)`,
+    ),
     check("ck_events_slug_format", sql`${t.slug} ~ '^[a-z0-9](?:[a-z0-9-]{1,28}[a-z0-9])$'`),
     check(
       "ck_events_primary_color",

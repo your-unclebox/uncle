@@ -22,6 +22,13 @@
       "when": 1791360803810,
       "tag": "0002_triggers_rls_and_reference_data",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1791361551565,
+      "tag": "0003_allow_incomplete_draft_events",
+      "breakpoints": true
     }
   ]
 }

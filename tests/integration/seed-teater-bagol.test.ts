@@ -21,8 +21,8 @@ describe("seed Teater Bagol", () => {
       .from(schema.events)
       .where(eq(schema.events.slug, TEATER_BAGOL_SLUG));
     expect(event?.status).toBe("ACTIVE");
-    expect(event?.startsAt.toISOString()).toBe("2026-12-20T12:00:00.000Z");
-    expect(event?.endsAt.toISOString()).toBe("2026-12-20T15:00:00.000Z");
+    expect(event?.startsAt?.toISOString()).toBe("2026-12-20T12:00:00.000Z");
+    expect(event?.endsAt?.toISOString()).toBe("2026-12-20T15:00:00.000Z");
 
     const types = await db
       .select({

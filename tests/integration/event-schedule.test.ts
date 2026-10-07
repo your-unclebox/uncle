@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { createEvent, useTestDatabase } from "../fixtures/db";
 import { expectPgError, PG } from "../fixtures/pg-error";
 
-// BR-EVT-09: Jam Selesai wajib dan harus setelah Jam Mulai (CHECK ends_at > starts_at).
+// BR-EVT-09: Jam Selesai wajib (kecuali Draft) dan harus setelah Jam Mulai.
 describe("validasi ends_at event", () => {
   const db = useTestDatabase();
   const startsAt = new Date("2026-12-20T19:00:00+07:00");
@@ -13,7 +13,7 @@ describe("validasi ends_at event", () => {
       startsAt,
       endsAt: new Date("2026-12-20T22:00:00+07:00"),
     });
-    expect(event.endsAt.toISOString()).toBe("2026-12-20T15:00:00.000Z");
+    expect(event.endsAt?.toISOString()).toBe("2026-12-20T15:00:00.000Z");
   });
 
   it("menolak ends_at sama dengan starts_at", async () => {
@@ -30,12 +30,29 @@ describe("validasi ends_at event", () => {
     );
   });
 
-  it("menolak ends_at kosong", async () => {
-    await expectPgError(
-      // Melewati tipe dengan sengaja untuk menguji NOT NULL di DB.
-      createEvent(db, { startsAt, endsAt: null as unknown as Date }),
-      { code: PG.NOT_NULL },
-    );
+  it("menolak event non-Draft tanpa ends_at (BR-EVT-04)", async () => {
+    await expectPgError(createEvent(db, { status: "ACTIVE", startsAt, endsAt: null }), {
+      code: PG.CHECK,
+      constraint: "ck_events_non_draft_complete",
+    });
+  });
+
+  it("AC-OWN-04.1: Draft boleh disimpan hanya dengan nama", async () => {
+    const draft = await createEvent(db, {
+      status: "DRAFT",
+      slug: null,
+      startsAt: null,
+      endsAt: null,
+    });
+    expect(draft.status).toBe("DRAFT");
+    expect(draft.slug).toBeNull();
+  });
+
+  it("menolak publish (ACTIVE) dari Draft yang belum lengkap", async () => {
+    await expectPgError(createEvent(db, { status: "ACTIVE", slug: null, startsAt, endsAt: null }), {
+      code: PG.CHECK,
+      constraint: "ck_events_non_draft_complete",
+    });
   });
 
   it("menolak mode AFTER_START_MINUTES tanpa offset (DRD §Database 5.2)", async () => {
