@@ -14,12 +14,13 @@ export function QRCodeDisplay({
   downloadName,
 }: {
   value: string;
-  variant: "ticket" | "payment";
+  variant: "ticket" | "payment" | "link";
   caption?: string;
   downloadName: string;
 }) {
   const [dataUrl, setDataUrl] = useState<string | null>(null);
-  const label = variant === "ticket" ? "QR Tiket" : "QR Pembayaran";
+  const label =
+    variant === "ticket" ? "QR Tiket" : variant === "payment" ? "QR Pembayaran" : "QR Link";
 
   useEffect(() => {
     let active = true;
@@ -50,7 +51,7 @@ export function QRCodeDisplay({
         ) : null}
       </div>
       {caption ? <p className="text-center text-sm text-subtle">{caption}</p> : null}
-      {dataUrl ? (
+      {dataUrl && variant !== "link" ? (
         <Button variant="secondary" size="sm" asChild>
           <a href={dataUrl} download={`${downloadName}.png`}>
             Simpan {label}

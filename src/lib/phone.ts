@@ -17,3 +17,17 @@ export function maskPhone(e164: string): string {
   if (national.length < 8) return national;
   return `${national.slice(0, 4)}****${national.slice(-4)}`;
 }
+
+// Tampilan lengkap untuk admin (detail transaksi): +6281234567890 → 081234567890.
+export function toNationalPhone(e164: string): string {
+  return e164.startsWith("+62") ? `0${e164.slice(3)}` : e164;
+}
+
+// Pencarian admin (ADM-05): "0812", "62812", "+62 812-…" → digit setelah 0/62,
+// cocok sebagai substring no HP E.164. Null bila terlalu pendek untuk dicari.
+export function phoneSearchDigits(query: string): string | null {
+  const digits = query.replace(/[\s\-().+]/g, "");
+  if (!/^\d+$/.test(digits)) return null;
+  const core = digits.startsWith("62") ? digits.slice(2) : digits.replace(/^0/, "");
+  return core.length >= 3 ? core : null;
+}
