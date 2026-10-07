@@ -18,3 +18,19 @@ export function formatEventDate(iso: string | Date | null, timeZone = "Asia/Jaka
     year: "numeric",
   }).format(new Date(iso));
 }
+
+// Hero & Step 5 (UI-UX §1): "Minggu, 20 Des 2026" / "Min, 20 Des 2026".
+export function formatEventDay(
+  iso: string | Date | null,
+  timeZone = "Asia/Jakarta",
+  weekday: "long" | "short" = "long",
+): string {
+  if (!iso) return "—";
+  return new Intl.DateTimeFormat("id-ID", {
+    timeZone,
+    weekday,
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  }).format(new Date(iso));
+}
