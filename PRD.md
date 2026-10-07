@@ -6,7 +6,7 @@
 > **Pertanyaan Terbuka** di akhir dokumen.
 >
 > **Contoh kasus:** event **Teater Bagol** (`teaterbagol.uncle.id`).
-> **Status:** Draft v1.3 · **Tanggal:** 7 Oktober 2026 · **Scope:** MVP
+> **Status:** Draft v1.4 · **Tanggal:** 7 Oktober 2026 · **Scope:** MVP
 >
 > **Perubahan v1.1 (patch dari v1, 6 Okt 2026):** (1) email customer **wajib**
 > (BR-TRX-02/03, LP-07); (2) Cash = **Reserved** dengan batas waktu — default
@@ -22,6 +22,9 @@
 >
 > **Perubahan v1.3:** LP-04 menampilkan rentang waktu Jam Mulai–Jam Selesai
 > (format `HH:MM–HH:MM WIB`).
+>
+> **Perubahan v1.4:** LP-02 (Hero) juga menampilkan rentang waktu dengan
+> format yang sama.
 
 ---
 
@@ -226,7 +229,7 @@ bila kapasitas memungkinkan · **Could** = nice-to-have, bisa setelah MVP.
 | ID | Fitur | Deskripsi | Prioritas |
 |---|---|---|---|
 | LP-01 | Routing Subdomain | `{slug}.uncle.id` menampilkan landing page event terkait dengan branding client. | Must |
-| LP-02 | Header Minimal & Hero | Logo client, tombol "Cek Pesanan", banner/cover, nama event, tanggal & jam, lokasi + "Lihat peta", tombol "Pilih Tiket". Tanpa navigasi marketplace. | Must |
+| LP-02 | Header Minimal & Hero | Logo client, tombol "Cek Pesanan", banner/cover, nama event, tanggal, **rentang waktu Jam Mulai–Jam Selesai** (format `HH:MM–HH:MM WIB`, mis. `19:00–22:00 WIB`), lokasi + "Lihat peta", tombol "Pilih Tiket". Tanpa navigasi marketplace. | Must |
 | LP-03 | Tab Navigasi Sticky | Deskripsi · Dokumentasi · Tiket · Lokasi. | Should |
 | LP-04 | Section Deskripsi | Tanggal, **rentang waktu Jam Mulai–Jam Selesai** (format `HH:MM–HH:MM WIB`, mis. `19:00–22:00 WIB`), kategori, tipe, paragraf deskripsi, Kebijakan Pengembalian (expand/collapse). | Must |
 | LP-05 | Section Dokumentasi | Galeri foto & video. | Must |

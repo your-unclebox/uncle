@@ -8,7 +8,7 @@
 > no HP) ditandai **(ikut asumsi PRD)**.
 >
 > **Contoh kasus:** event **Teater Bagol** (`teaterbagol.uncle.id`).
-> **Status:** Draft v1.3 · **Tanggal:** 7 Oktober 2026 · **Scope:** MVP
+> **Status:** Draft v1.4 · **Tanggal:** 7 Oktober 2026 · **Scope:** MVP
 >
 > **Perubahan v1.1 (patch dari v1, 6 Okt 2026):** (1) field **Email wajib** di
 > Step 2 (bukan opsional; untuk kirim salinan QR Tiket, bukan login);
@@ -23,6 +23,9 @@
 > **Perubahan v1.3:** Hero & Deskripsi landing page (desktop & mobile)
 > menampilkan rentang **Jam Mulai–Jam Selesai** format `HH:MM–HH:MM WIB`
 > (mis. `19:00–22:00 WIB`) — Wireframe §1.1, §1.2.
+>
+> **Perubahan v1.4:** ringkasan event di Step 5 (Tiket Siap, QRIS Lunas)
+> memakai rentang penuh `19:00–22:00 WIB`.
 
 **Tiga permukaan utama:**
 
@@ -499,7 +502,8 @@ sheet)** dengan tombol kembali, supaya fokus & tidak tertutup keyboard.
 │                                          │
 │ Budi Santoso · 0812****7890              │
 │ 2× Reguler, 1× VIP     [ ✔ Lunas ]       │
-│ Teater Bagol · Sab, 20 Des 2026 · 19:00  │
+│ Teater Bagol · Sab, 20 Des 2026          │
+│ 19:00–22:00 WIB                          │
 │                                          │
 │ Tunjukkan QR ini saat pengambilan tiket  │
 │ di lokasi.                               │
