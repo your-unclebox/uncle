@@ -6,7 +6,14 @@
 > **Pertanyaan Terbuka** di akhir dokumen.
 >
 > **Contoh kasus:** event **Teater Bagol** (`teaterbagol.uncle.id`).
-> **Status:** Draft v1 · **Tanggal:** 6 Oktober 2026 · **Scope:** MVP
+> **Status:** Draft v1.1 · **Tanggal:** 7 Oktober 2026 · **Scope:** MVP
+>
+> **Perubahan v1.1 (patch dari v1, 6 Okt 2026):** (1) email customer **wajib**
+> (BR-TRX-02/03, LP-07); (2) Cash = **Reserved** dengan batas waktu — default
+> **jam selesai event**, bisa dipercepat Owner per event (BR-TRX-08, OWN-17);
+> (3) Payment Settings memakai **3 kredensial** Tripay: Merchant Code, API Key,
+> Private Key (ADM-07); (4) Scanner punya hasil baru **Reservasi Kedaluwarsa**
+> + "Buat Pesanan Baru dengan Data Ini" (SCN-08, BR-TKT-07).
 
 ---
 
@@ -55,7 +62,7 @@ venue untuk verifikasi bayar & pengambilan tiket.
 | Kecepatan check-in | Waktu dari QR discan sampai detail transaksi tampil | ≤ 3 detik (koneksi 4G) |
 | Kecepatan check-in | Waktu proses 1 pembeli QRIS (scan → "Tiket Diambil") | ≤ 15 detik |
 | Keamanan | Insiden data satu client terlihat oleh client lain | 0 |
-| Pengiriman | QR Tiket terkirim ke email (jika email diisi) | ≥ 95% terkirim ≤ 5 menit |
+| Pengiriman | QR Tiket terkirim ke email customer (email wajib) | ≥ 95% terkirim ≤ 5 menit |
 
 ---
 
@@ -106,6 +113,7 @@ venue untuk verifikasi bayar & pengambilan tiket.
 | US-OWN-05 | Sebagai **Owner**, saya ingin menentukan slug/subdomain event (mis. `teaterbagol` → `teaterbagol.uncle.id`), supaya tiap event punya alamat sendiri yang mudah dibagikan. |
 | US-OWN-06 | Sebagai **Owner**, saya ingin mem-publish event, supaya landing page langsung live di subdomain-nya dan customer bisa membeli tiket. |
 | US-OWN-07 | Sebagai **Owner**, saya ingin mengedit event yang sudah ada, supaya perubahan info dari client (mis. revisi deskripsi atau tambah kuota) bisa diterapkan. |
+| US-OWN-08 | Sebagai **Owner**, saya ingin mempercepat batas reservasi Cash untuk event tertentu (mis. sampai jam mulai event), supaya kuota yang tidak diambil lebih cepat tersedia lagi bila diperlukan. |
 
 ### Epic 2 — Akses Client (Owner & Admin)
 
@@ -140,10 +148,10 @@ venue untuk verifikasi bayar & pengambilan tiket.
 | US-CUS-01 | Sebagai **Customer**, saya ingin membuka landing page `{slug}.uncle.id` dan melihat deskripsi, dokumentasi, lokasi, waktu, serta jenis & harga tiket, supaya saya bisa memutuskan untuk membeli. |
 | US-CUS-02 | Sebagai **Customer**, saya ingin memilih jenis & jumlah tiket, termasuk mencampur beberapa jenis dalam satu transaksi, supaya saya bisa membeli untuk rombongan sekaligus. |
 | US-CUS-03 | Sebagai **Customer**, saya ingin melihat kuota tersisa tiap jenis tiket, supaya saya tahu ketersediaan sebelum memesan. |
-| US-CUS-04 | Sebagai **Customer**, saya ingin cukup mengisi nama & no HP tanpa membuat akun, supaya proses beli cepat. |
+| US-CUS-04 | Sebagai **Customer**, saya ingin cukup mengisi nama, no HP, dan email tanpa membuat akun, supaya proses beli cepat dan salinan QR Tiket terkirim ke email saya. |
 | US-CUS-05 | Sebagai **Customer**, saya ingin memilih metode bayar QRIS atau Cash, supaya saya bisa bayar dengan cara yang paling nyaman. |
 | US-CUS-06 | Sebagai **Customer** yang memilih QRIS, saya ingin melihat QR pembayaran dengan nominal sesuai total dan statusnya ter-update otomatis setelah saya bayar, supaya saya tidak perlu mengirim bukti transfer. |
-| US-CUS-07 | Sebagai **Customer** yang memilih Cash, saya ingin langsung mendapat QR Tiket tanpa pembayaran online, supaya saya bisa bayar di lokasi saat mengambil tiket. |
+| US-CUS-07 | Sebagai **Customer** yang memilih Cash, saya ingin langsung mendapat QR Tiket tanpa pembayaran online (pesanan berstatus Reserved sampai batas waktu reservasi), supaya saya bisa bayar di lokasi saat mengambil tiket. |
 | US-CUS-08 | Sebagai **Customer**, saya ingin QR Tiket tampil di layar dan terkirim ke email, supaya saya punya bukti tiket yang tidak hilang. |
 | US-CUS-09 | Sebagai **Customer**, saya ingin mengecek pesanan saya kembali lewat tombol "Cek Pesanan", supaya saya bisa menampilkan ulang QR Tiket jika layar tertutup. |
 | US-CUS-10 | Sebagai **Customer**, saya ingin membagikan link event lewat WhatsApp atau menyalin link, supaya saya bisa mengajak teman nonton. |
@@ -159,6 +167,7 @@ venue untuk verifikasi bayar & pengambilan tiket.
 | US-SCN-03 | Sebagai **Admin/Client**, saya ingin menandai "Tiket Diambil" untuk transaksi QRIS yang sudah Lunas otomatis, supaya pengambilan tiket tercatat dan tidak bisa diulang. |
 | US-SCN-04 | Sebagai **Admin/Client**, saya ingin mengonfirmasi "Lunas" secara manual untuk transaksi Cash setelah menerima uang, baru kemudian menandai "Tiket Diambil", supaya tidak ada tiket diserahkan sebelum dibayar. |
 | US-SCN-05 | Sebagai **Admin/Client**, saya ingin diberi peringatan jika QR sudah pernah diambil, tidak valid, atau milik event lain, supaya tidak terjadi penyerahan tiket ganda atau penipuan. |
+| US-SCN-06 | Sebagai **Admin/Client**, saat memindai QR Tiket Cash yang reservasinya sudah kedaluwarsa, saya ingin langsung membuat pesanan baru berstatus Lunas dengan data yang sama bila kuota masih ada, supaya pembeli yang datang terlambat tetap bisa dilayani tanpa checkout ulang. |
 
 ---
 
@@ -187,6 +196,7 @@ bila kapasitas memungkinkan · **Could** = nice-to-have, bisa setelah MVP.
 | OWN-14 | Unpublish / Tutup Penjualan | Menarik event dari publik atau menutup penjualan tanpa menghapus data. *(Asumsi — perlu konfirmasi)* | Should |
 | OWN-15 | Status Selesai Otomatis | Event berubah ke "Selesai" setelah tanggal/waktu event lewat. *(Asumsi — perlu konfirmasi)* | Should |
 | OWN-16 | Export Report (CSV) | Unduh laporan lintas event. | Could |
+| OWN-17 | Batas Reservasi Cash | Pengaturan per event kapan reservasi Cash kedaluwarsa. **Default: jam selesai event.** Owner bisa mempercepat (mis. jam mulai event, atau sekian jam setelah mulai), tidak boleh melewati jam selesai event. Lihat BR-TRX-08. | Should |
 
 ### B. Admin Dashboard (scoped per event)
 
@@ -198,7 +208,7 @@ bila kapasitas memungkinkan · **Could** = nice-to-have, bisa setelah MVP.
 | ADM-04 | Daftar Transaksi | Kolom: nama, no HP, jenis & jumlah tiket, metode bayar, status bayar, status ambil. | Must |
 | ADM-05 | Filter & Cari Transaksi | Filter status bayar, status ambil, metode bayar; cari nama/no HP/kode pesanan. | Must |
 | ADM-06 | Detail Transaksi | Rincian item tiket, total, waktu transaksi, waktu lunas, waktu diambil, siapa yang menandai. | Must |
-| ADM-07 | Payment Settings (QRIS) | Pilih provider (mis. Tripay), isi API Key & Private Key (dimasking), simpan, tampilkan status koneksi. | Must |
+| ADM-07 | Payment Settings (QRIS) | Pilih provider (mis. Tripay), isi **3 kredensial: Merchant Code, API Key, Private Key** (dimasking), simpan, tampilkan status koneksi. | Must |
 | ADM-08 | Kirim Ulang QR Tiket | Kirim ulang email QR Tiket ke pembeli. *(Asumsi)* | Could |
 | ADM-09 | Batalkan Transaksi / Tandai Refund | Batalkan transaksi (mis. Cash tidak datang, atau refund di luar sistem) → kuota dikembalikan & QR Tiket tidak berlaku. *(Asumsi — perlu konfirmasi, lihat BR Refund)* | Could |
 | ADM-10 | Export Transaksi (CSV) | Unduh daftar transaksi event. | Could |
@@ -213,7 +223,7 @@ bila kapasitas memungkinkan · **Could** = nice-to-have, bisa setelah MVP.
 | LP-04 | Section Deskripsi | Tanggal, jam, kategori, tipe, paragraf deskripsi, Kebijakan Pengembalian (expand/collapse). | Must |
 | LP-05 | Section Dokumentasi | Galeri foto & video. | Must |
 | LP-06 | Pilih Tiket (Step 1) | Daftar jenis tiket, harga, kuota tersisa, stepper [− n +], subtotal; boleh campur jenis. | Must |
-| LP-07 | Data Diri (Step 2) | Nama & No. HP (wajib). Email untuk pengiriman QR Tiket — lihat BR-TRX-03. | Must |
+| LP-07 | Data Diri (Step 2) | Nama, No. HP, dan **Email — ketiganya wajib**. Email dipakai untuk mengirim salinan QR Tiket, bukan untuk login (BR-TRX-03). | Must |
 | LP-08 | Metode Pembayaran (Step 3) | Pilih QRIS atau Cash. | Must |
 | LP-09 | Pembayaran QRIS (Step 4) | Tampilkan QR pembayaran dengan nominal = total, countdown batas waktu, status auto-update via webhook. | Must |
 | LP-10 | Tiket Siap (Step 5) | Tampilkan QR Tiket (beda dari QR pembayaran) + kode pesanan + instruksi; kirim ke email. | Must |
@@ -232,16 +242,17 @@ bila kapasitas memungkinkan · **Could** = nice-to-have, bisa setelah MVP.
 | SCN-02 | Scan & Tampil Detail | Scan QR Tiket → tampil nama, tiket (jenis × jumlah), metode, status bayar, status ambil. | Must |
 | SCN-03 | Tandai Tiket Diambil | Tombol aktif hanya jika status bayar Lunas. | Must |
 | SCN-04 | Konfirmasi Lunas (Cash) | Checkbox "Sudah terima uang" + tombol "Konfirmasi Lunas"; setelah itu tombol "Tandai Diambil" aktif. | Must |
-| SCN-05 | Validasi Scan | Tolak/peringatkan: QR tidak valid, QR milik event lain, tiket sudah diambil, transaksi dibatalkan, QRIS belum lunas. | Must |
+| SCN-05 | Validasi Scan | Tolak/peringatkan: QR tidak valid, QR milik event lain, tiket sudah diambil, transaksi dibatalkan, QRIS belum lunas, **reservasi Cash kedaluwarsa** (lihat SCN-08). | Must |
 | SCN-06 | Input Kode Manual | Fallback ketik kode pesanan jika kamera tidak tersedia / QR rusak. *(Asumsi)* | Should |
 | SCN-07 | Multi-perangkat Bersamaan | Beberapa admin bisa scan bersamaan; status selalu konsisten (tidak ada pengambilan ganda). | Should |
+| SCN-08 | Reservasi Kedaluwarsa → Buat Pesanan Baru | Scan QR Tiket dari reservasi Cash yang sudah lewat batas → tampil "Reservasi Kedaluwarsa — kuota sudah dilepas otomatis". Sistem cek kuota saat itu: **ada** → tombol "Buat Pesanan Baru dengan Data Ini" (admin konfirmasi terima uang → pesanan baru langsung **Lunas**); **habis** → "Maaf, kuota sudah habis karena reservasi tidak diambil tepat waktu", tanpa aksi. Lihat BR-TKT-07. | Must |
 
 ### E. Lintas Area (Platform & Non-Fungsional)
 
 | ID | Fitur | Deskripsi | Prioritas |
 |---|---|---|---|
 | PLT-01 | Webhook Payment Gateway | Endpoint webhook per client, verifikasi signature memakai kredensial client, idempotent. | Must |
-| PLT-02 | Penyimpanan Kredensial Aman | API Key & Private Key dienkripsi at-rest, tidak pernah ditampilkan ulang dalam bentuk utuh. | Must |
+| PLT-02 | Penyimpanan Kredensial Aman | Tiga kredensial (Merchant Code, API Key, Private Key) tidak pernah ditampilkan ulang dalam bentuk utuh; API Key & Private Key dienkripsi at-rest. | Must |
 | PLT-03 | Pengiriman Email QR Tiket | Email berisi QR Tiket, kode pesanan, ringkasan pesanan & info event. | Must |
 | PLT-04 | Kontrol Kuota Atomik | Pengurangan/penahanan kuota aman terhadap pembelian bersamaan (no overselling). | Must |
 | PLT-05 | Audit Log | Catat siapa & kapan menandai Lunas (Cash), Diambil, membatalkan, atau mengubah Payment Settings. *(Asumsi)* | Should |
@@ -280,13 +291,13 @@ bila kapasitas memungkinkan · **Could** = nice-to-have, bisa setelah MVP.
 | ID | Aturan |
 |---|---|
 | BR-TRX-01 | **Satu transaksi boleh berisi lebih dari satu jenis tiket** (mis. 2 Reguler + 1 VIP). Total jumlah tiket minimal 1. |
-| BR-TRX-02 | Data diri wajib: **nama** dan **no HP**. Tidak perlu akun. *Asumsi — perlu konfirmasi:* no HP format Indonesia (diawali `08` atau `+628`, 10–14 digit). |
-| BR-TRX-03 | **Email** — overview menyebut QR Tiket "terkirim ke email" tetapi data diri hanya nama & no HP. *Asumsi — perlu konfirmasi:* ditambahkan field **email opsional**; jika diisi, QR Tiket dikirim ke email; jika tidak, QR Tiket tetap tampil di layar dan dapat diakses ulang via Cek Pesanan. Ini menjaga prinsip "cukup nama & no HP". |
+| BR-TRX-02 | Data diri wajib: **nama**, **no HP**, dan **email**. Tidak perlu akun. *Asumsi — perlu konfirmasi:* no HP format Indonesia (diawali `08` atau `+628`, 10–14 digit). |
+| BR-TRX-03 | **Email wajib (keputusan final).** Transaksi tidak bisa dibuat tanpa email yang formatnya valid. Email dipakai **hanya untuk mengirim salinan QR Tiket** (dan info pesanan terkait), **bukan untuk login** — customer tetap tidak punya akun. QR Tiket tetap tampil di layar & bisa diakses ulang via Cek Pesanan; bila pengiriman email gagal, transaksi tetap valid (AC-LP-10.3). |
 | BR-TRX-04 | Total harga dihitung **di server** = Σ (harga jenis tiket × jumlah); nilai dari browser tidak dipercaya. |
 | BR-TRX-05 | *Asumsi — perlu konfirmasi:* maksimal **10 tiket per transaksi** (gabungan semua jenis). |
 | BR-TRX-06 | Kuota tersisa = kuota − tiket terjual − tiket yang sedang ditahan. Jumlah yang dipesan tidak boleh melebihi kuota tersisa per jenis; pengecekan dilakukan atomik saat transaksi dibuat. |
 | BR-TRX-07 | *Asumsi — perlu konfirmasi:* transaksi **QRIS** menahan kuota sejak QR pembayaran dibuat sampai Lunas atau kedaluwarsa; jika kedaluwarsa, kuota dikembalikan. |
-| BR-TRX-08 | *Asumsi — perlu konfirmasi:* transaksi **Cash** langsung mengurangi kuota sejak QR Tiket terbit (karena QR Tiket sudah diberikan di awal). Kuota baru kembali jika admin membatalkan transaksi (ADM-09). |
+| BR-TRX-08 | Transaksi **Cash** berstatus **Reserved** (status bayar "Belum") dan **menahan kuota** sejak QR Tiket terbit sampai **batas reservasi**. Batas reservasi **default = jam selesai event** (bukan H-1, karena Cash dibayar di venue saat hari-H). Owner dapat **mempercepat** batas ini per event (OWN-17), mis. jam mulai event atau sekian jam setelah mulai; batas tidak boleh melewati jam selesai event. Bila lewat batas tanpa dikonfirmasi Lunas, transaksi otomatis **Kedaluwarsa**, kuota **kembali ke pool**, dan QR Tiket-nya tidak berlaku lagi (scan → "Reservasi Kedaluwarsa", BR-TKT-07). Sebelum batas, kuota juga kembali bila admin membatalkan transaksi (ADM-09). *Asumsi — perlu konfirmasi:* jam selesai event wajib diisi saat publish agar batas default jelas. |
 | BR-TRX-09 | Setiap transaksi punya **kode pesanan** unik yang tampil di Step 5, di email, dan di dashboard admin. |
 
 ### Pembayaran
@@ -309,11 +320,12 @@ bila kapasitas memungkinkan · **Could** = nice-to-have, bisa setelah MVP.
 | ID | Aturan |
 |---|---|
 | BR-TKT-01 | **QR Tiket berbeda dari QR pembayaran.** QR Tiket berisi token acak yang tidak bisa ditebak, bukan data pribadi. |
-| BR-TKT-02 | **QRIS:** QR Tiket terbit **setelah** status Lunas. **Cash:** QR Tiket terbit **langsung** setelah checkout, dengan status bayar "Belum". |
+| BR-TKT-02 | **QRIS:** QR Tiket terbit **setelah** status Lunas. **Cash:** QR Tiket terbit **langsung** setelah checkout, dengan status bayar "Belum" (Reserved), dan hanya berlaku sampai batas reservasi (BR-TRX-08). |
 | BR-TKT-03 | **Satu QR Tiket per transaksi**, mewakili semua tiket di dalamnya (sesuai contoh scanner "2x Reguler"). *Asumsi — perlu konfirmasi:* semua tiket fisik dalam satu transaksi diambil sekaligus (tidak ada pengambilan sebagian). |
 | BR-TKT-04 | Tombol **"Tandai Tiket Diambil" hanya aktif bila status bayar Lunas.** |
 | BR-TKT-05 | Status "Diambil" bersifat final. Scan ulang QR yang sudah diambil menampilkan peringatan beserta waktu & admin yang menandai. *Asumsi — perlu konfirmasi:* pembatalan status Diambil tidak tersedia dari Scanner. |
 | BR-TKT-06 | QR Tiket hanya valid untuk event-nya sendiri; scan di Scanner event lain ditolak tanpa menampilkan data transaksi. |
+| BR-TKT-07 | **Reservasi Kedaluwarsa.** Scan QR Tiket dari transaksi Cash yang sudah lewat batas reservasi menampilkan "Reservasi Kedaluwarsa — kuota sudah dilepas otomatis", lalu sistem mengecek kuota tersisa **saat itu** untuk jenis tiket di transaksi tersebut: (a) **ada** → admin bisa menekan "Buat Pesanan Baru dengan Data Ini" setelah mencentang "Sudah terima uang"; sistem membuat **transaksi baru** (kode pesanan & QR Tiket baru, data nama/no HP/email/jenis & jumlah tiket sama) yang **langsung berstatus Lunas** (Cash) karena uang diterima di tempat, lalu admin menandai Diambil seperti biasa; QR Tiket lama tetap tidak berlaku; (b) **habis** → tampil "Maaf, kuota sudah habis karena reservasi tidak diambil tepat waktu", tidak ada aksi lanjutan di sistem (ditangani admin secara manual di luar sistem). Satu reservasi kedaluwarsa hanya bisa dibuatkan **satu** transaksi baru. *Asumsi — perlu konfirmasi:* untuk transaksi multi-jenis, kuota **semua** jenis harus cukup (tidak ada pembuatan sebagian); harga mengikuti **harga saat ini** (BR-EVT-07); aksi tersedia selama Scanner bisa dipakai (BR-EVT-08), walau penjualan online sudah ditutup. |
 
 ### Refund & Pembatalan *(seluruhnya Asumsi — perlu konfirmasi; overview hanya menyebut "Kebijakan Pengembalian" di landing page)*
 
@@ -322,7 +334,7 @@ bila kapasitas memungkinkan · **Could** = nice-to-have, bisa setelah MVP.
 | BR-RFD-01 | Karena Uncle tidak memegang uang (BR-PAY-01), **Uncle tidak memproses refund**. Refund QRIS dilakukan oleh client langsung (lewat dashboard provider/transfer manual) sesuai kebijakan pengembalian yang ditulis client. |
 | BR-RFD-02 | Kebijakan pengembalian ditentukan per event oleh client dan ditampilkan di landing page sebelum pembelian. Default yang diusulkan: **tiket tidak dapat dikembalikan, kecuali event dibatalkan/ditunda oleh penyelenggara**. |
 | BR-RFD-03 | Admin dapat menandai transaksi sebagai **Dibatalkan/Refund** (ADM-09) untuk pencatatan: QR Tiket menjadi tidak valid, kuota dikembalikan, dan transaksi tidak dihitung di revenue. |
-| BR-RFD-04 | Transaksi Cash yang belum dibayar sampai event selesai tetap berstatus "Belum" dan tidak dihitung di revenue. |
+| BR-RFD-04 | Transaksi Cash yang belum dibayar sampai batas reservasi (default: jam selesai event) berubah menjadi **Kedaluwarsa**, kuotanya kembali ke pool (BR-TRX-08), dan tidak dihitung di revenue. |
 | BR-RFD-05 | Jika event dibatalkan oleh penyelenggara, Owner menutup penjualan; komunikasi ke customer dilakukan oleh client memakai data kontak di dashboard. |
 
 ### Pelaporan
@@ -330,7 +342,7 @@ bila kapasitas memungkinkan · **Could** = nice-to-have, bisa setelah MVP.
 | ID | Aturan |
 |---|---|
 | BR-RPT-01 | *Asumsi — perlu konfirmasi:* **Revenue** = jumlah total transaksi berstatus Lunas (QRIS + Cash), nilai bruto sebelum fee gateway. Bersifat informasi; uang tidak lewat Uncle. |
-| BR-RPT-02 | *Asumsi — perlu konfirmasi:* **Terjual** = jumlah tiket pada transaksi Lunas + transaksi Cash yang belum dibayar (karena QR Tiket sudah terbit & kuota terpakai). Transaksi QRIS pending/kedaluwarsa dan transaksi dibatalkan tidak dihitung. |
+| BR-RPT-02 | *Asumsi — perlu konfirmasi:* **Terjual** = jumlah tiket pada transaksi Lunas + transaksi Cash **Reserved yang belum lewat batas reservasi** (karena QR Tiket sudah terbit & kuota tertahan). Transaksi QRIS pending/kedaluwarsa, reservasi Cash kedaluwarsa, dan transaksi dibatalkan tidak dihitung. |
 
 ---
 
@@ -391,9 +403,9 @@ bila kapasitas memungkinkan · **Could** = nice-to-have, bisa setelah MVP.
 - **AC-ADM-05.3 (tidak ada hasil)** — **Given** admin mencari nama yang tidak ada · **When** pencarian dijalankan · **Then** tampil pesan "Tidak ada transaksi yang cocok".
 
 #### ADM-07 Payment Settings (QRIS)
-- **AC-ADM-07.1 (sukses)** — **Given** admin di menu Payment Settings · **When** admin memilih provider Tripay, mengisi API Key & Private Key yang valid, lalu Simpan · **Then** sistem menguji koneksi, menampilkan "✅ Terhubung", dan opsi QRIS muncul di landing page.
+- **AC-ADM-07.1 (sukses)** — **Given** admin di menu Payment Settings · **When** admin memilih provider Tripay, mengisi Merchant Code, API Key & Private Key yang valid, lalu Simpan · **Then** sistem menguji koneksi, menampilkan "✅ Terhubung", dan opsi QRIS muncul di landing page.
 - **AC-ADM-07.2 (gagal — kredensial salah)** — **Given** admin di Payment Settings · **When** admin menyimpan kredensial yang ditolak provider · **Then** status menampilkan "Gagal terhubung" beserta alasan dari provider bila ada, dan opsi QRIS tidak tampil di landing page.
-- **AC-ADM-07.3 (gagal — field kosong)** — **Given** admin di Payment Settings · **When** admin klik Simpan dengan API Key atau Private Key kosong · **Then** penyimpanan ditolak dengan pesan validasi.
+- **AC-ADM-07.3 (gagal — field kosong)** — **Given** admin di Payment Settings · **When** admin klik Simpan dengan salah satu dari Merchant Code, API Key, atau Private Key kosong · **Then** penyimpanan ditolak dengan pesan validasi pada field yang kosong.
 - **AC-ADM-07.4 (keamanan)** — **Given** kredensial sudah tersimpan · **When** admin atau Owner membuka kembali Payment Settings · **Then** kredensial hanya tampil termasking dan tidak bisa disalin utuh.
 - **AC-ADM-07.5 (belum diatur)** — **Given** admin belum mengatur QRIS · **When** customer membuka landing page · **Then** hanya metode Cash yang tersedia (BR-PAY-09).
 
@@ -415,10 +427,11 @@ bila kapasitas memungkinkan · **Could** = nice-to-have, bisa setelah MVP.
 - **AC-LP-06.7 (gagal — batas per transaksi)** — **Given** batas 10 tiket per transaksi (BR-TRX-05) · **When** customer mencoba memilih total 11 tiket · **Then** sistem mencegah dan menampilkan batas maksimum.
 
 #### LP-07 Data Diri
-- **AC-LP-07.1 (sukses)** — **Given** customer sudah memilih tiket · **When** mengisi nama "Budi Santoso" dan no HP "081234567890" · **Then** customer bisa lanjut ke Metode Pembayaran.
-- **AC-LP-07.2 (gagal — tidak lengkap)** — **Given** customer di Step Data Diri · **When** nama atau no HP dikosongkan lalu klik lanjut · **Then** proses tertahan dan field kosong ditandai "Wajib diisi".
+- **AC-LP-07.1 (sukses)** — **Given** customer sudah memilih tiket · **When** mengisi nama "Budi Santoso", no HP "081234567890", dan email "budi@mail.com" · **Then** customer bisa lanjut ke Metode Pembayaran.
+- **AC-LP-07.2 (gagal — tidak lengkap)** — **Given** customer di Step Data Diri · **When** nama, no HP, atau email dikosongkan lalu klik lanjut · **Then** proses tertahan dan field kosong ditandai "Wajib diisi".
 - **AC-LP-07.3 (gagal — no HP tidak valid)** — **Given** customer di Step Data Diri · **When** mengisi no HP "12345" · **Then** muncul pesan "Format no HP tidak valid" (BR-TRX-02).
-- **AC-LP-07.4 (email tidak valid — Asumsi)** — **Given** field email opsional tersedia (BR-TRX-03) · **When** customer mengisi email dengan format salah · **Then** muncul pesan validasi; jika dikosongkan, customer tetap bisa lanjut.
+- **AC-LP-07.4 (gagal — email tidak valid)** — **Given** customer di Step Data Diri · **When** mengisi email dengan format salah (mis. "budi@") · **Then** muncul pesan "Format email tidak valid" dan customer tidak bisa lanjut (BR-TRX-03).
+- **AC-LP-07.5 (keamanan — bukan login)** — **Given** customer pernah membeli dengan email "budi@mail.com" · **When** customer membeli lagi atau membuka landing page · **Then** tidak ada akun/login yang dibuat atau diminta berdasarkan email tersebut.
 
 #### LP-08 & LP-09 Metode Pembayaran & QRIS
 - **AC-LP-09.1 (sukses — QRIS)** — **Given** QRIS client Terhubung dan customer memilih QRIS dengan total Rp 300.000 · **When** klik "Bayar Sekarang" · **Then** QR pembayaran bernominal Rp 300.000 tampil beserta countdown batas waktu, dan kuota ditahan (BR-TRX-07).
@@ -428,11 +441,14 @@ bila kapasitas memungkinkan · **Could** = nice-to-have, bisa setelah MVP.
 - **AC-LP-09.5 (webhook ganda)** — **Given** transaksi sudah Lunas · **When** webhook "paid" yang sama diterima lagi · **Then** status tetap Lunas, tidak ada QR Tiket/email ganda (BR-PAY-05).
 - **AC-LP-09.6 (webhook terlambat — Asumsi)** — **Given** transaksi sudah Kedaluwarsa · **When** webhook "paid" valid diterima · **Then** sistem mengikuti BR-PAY-08 (Lunas bila kuota tersedia, atau "Perlu Refund" bila kuota habis).
 - **AC-LP-09.7 (gagal — gateway error)** — **Given** customer memilih QRIS · **When** payment gateway gagal membuat QR (timeout/error) · **Then** customer melihat pesan "Pembayaran QRIS sedang bermasalah, coba lagi atau pilih Cash", kuota tidak tertahan, dan tidak ada transaksi Lunas tercatat.
-- **AC-LP-08.1 (sukses — Cash)** — **Given** customer memilih Cash · **When** klik "Bayar Sekarang" · **Then** Step 4 dilewati, transaksi tercatat dengan status bayar "Belum", kuota berkurang (BR-TRX-08), dan customer langsung ke Step 5.
+- **AC-LP-08.1 (sukses — Cash)** — **Given** customer memilih Cash · **When** klik "Bayar Sekarang" · **Then** Step 4 dilewati, transaksi tercatat berstatus **Reserved** (status bayar "Belum") dengan batas reservasi sesuai pengaturan event, kuota ditahan (BR-TRX-08), dan customer langsung ke Step 5.
+- **AC-LP-08.2 (reservasi kedaluwarsa — default)** — **Given** event Teater Bagol berakhir pukul 22:00 dengan batas reservasi default, dan transaksi Cash Siti R. (1 VIP) masih Reserved · **When** pukul 22:00 lewat tanpa admin mengonfirmasi Lunas · **Then** transaksi berubah Kedaluwarsa, kuota VIP bertambah 1, dan QR Tiket Siti tidak berlaku lagi.
+- **AC-LP-08.3 (batas dipercepat Owner)** — **Given** Owner mengatur batas reservasi Cash Teater Bagol = jam mulai event (19:00) · **When** customer checkout Cash · **Then** batas reservasi pesanan tercatat 19:00, dan setelah 19:00 lewat tanpa konfirmasi Lunas transaksi Kedaluwarsa & kuota kembali ke pool.
+- **AC-LP-08.4 (tidak dilepas lebih awal)** — **Given** batas reservasi default (jam selesai event) · **When** H-1 atau jam mulai event lewat · **Then** reservasi Cash tetap Reserved dan kuotanya tetap tertahan.
 
 #### LP-10 Tiket Siap & Email
 - **AC-LP-10.1 (sukses)** — **Given** transaksi QRIS Lunas atau transaksi Cash dibuat · **When** Step 5 tampil · **Then** QR Tiket (berbeda dari QR pembayaran), kode pesanan, ringkasan tiket, dan instruksi "Tunjukkan QR ini saat pengambilan tiket di lokasi" tampil.
-- **AC-LP-10.2 (sukses — email)** — **Given** customer mengisi email · **When** QR Tiket terbit · **Then** email berisi QR Tiket, kode pesanan, ringkasan pesanan & info event terkirim, dan layar menampilkan "✅ Juga sudah dikirim ke email kamu".
+- **AC-LP-10.2 (sukses — email)** — **Given** transaksi dengan email valid (wajib, BR-TRX-03) · **When** QR Tiket terbit · **Then** email berisi QR Tiket, kode pesanan, ringkasan pesanan & info event terkirim ke email tersebut, dan layar menampilkan "✅ Juga sudah dikirim ke email kamu".
 - **AC-LP-10.3 (gagal — email gagal)** — **Given** pengiriman email gagal (bounce/error) · **When** QR Tiket terbit · **Then** QR Tiket tetap tampil di layar, transaksi tetap valid, kegagalan dicatat, dan layar tidak menampilkan klaim "sudah dikirim ke email".
 - **AC-LP-10.4 (gagal — QRIS belum lunas)** — **Given** transaksi QRIS belum Lunas · **When** customer mencoba membuka halaman Tiket Siap secara langsung · **Then** QR Tiket tidak ditampilkan.
 
@@ -472,6 +488,14 @@ bila kapasitas memungkinkan · **Could** = nice-to-have, bisa setelah MVP.
 #### SCN-07 Scan Bersamaan
 - **AC-SCN-07.1 (gagal — pengambilan ganda)** — **Given** dua admin memindai QR Budi di dua HP hampir bersamaan · **When** keduanya klik "Tandai Tiket Diambil" · **Then** hanya satu yang berhasil; admin kedua menerima peringatan "Tiket sudah diambil".
 
+#### SCN-08 Reservasi Kedaluwarsa → Buat Pesanan Baru
+- **AC-SCN-08.1 (kedaluwarsa — kuota ada)** — **Given** batas reservasi Teater Bagol dipercepat ke 19:00, transaksi Cash Siti R. (1 VIP) sudah Kedaluwarsa, dan VIP saat ini sisa ≥ 1 · **When** admin memindai QR Siti pukul 19:20 · **Then** tampil "Reservasi Kedaluwarsa — kuota sudah dilepas otomatis", data Siti, nominal tagihan, checkbox "Sudah terima uang", dan tombol "Buat Pesanan Baru dengan Data Ini" yang nonaktif sampai checkbox dicentang.
+- **AC-SCN-08.2 (sukses — pesanan baru Lunas)** — **Given** hasil scan AC-SCN-08.1 tampil · **When** admin mencentang "Sudah terima uang" lalu klik "Buat Pesanan Baru dengan Data Ini" · **Then** terbentuk transaksi baru dengan kode pesanan & QR Tiket baru, nama/no HP/email/jenis & jumlah tiket sama dengan reservasi lama, status bayar **Lunas (Cash)** tercatat dengan waktu & admin, kuota VIP berkurang 1, QR Tiket baru dikirim ke email Siti, QR lama tetap tidak berlaku, dan tombol "Tandai Tiket Diambil" aktif.
+- **AC-SCN-08.3 (kedaluwarsa — kuota habis)** — **Given** transaksi Cash Siti sudah Kedaluwarsa dan VIP saat ini sisa 0 · **When** admin memindai QR Siti · **Then** tampil "Reservasi Kedaluwarsa — kuota sudah dilepas otomatis" dan "Maaf, kuota sudah habis karena reservasi tidak diambil tepat waktu", tanpa tombol aksi apa pun.
+- **AC-SCN-08.4 (gagal — kuota habis saat konfirmasi)** — **Given** hasil scan AC-SCN-08.1 tampil · **When** kuota VIP terakhir terjual ke pembeli lain sebelum admin menekan "Buat Pesanan Baru dengan Data Ini" · **Then** pembuatan ditolak, tidak ada transaksi baru, dan tampilan berubah ke kondisi AC-SCN-08.3.
+- **AC-SCN-08.5 (gagal — dibuat ganda)** — **Given** reservasi Siti sudah dibuatkan transaksi baru · **When** QR lama Siti dipindai lagi atau admin lain menekan tombol yang sama · **Then** tidak ada transaksi baru kedua; tampil info bahwa pesanan baru sudah dibuat beserta kode pesanannya.
+- **AC-SCN-08.6 (multi jenis — Asumsi)** — **Given** reservasi kedaluwarsa berisi 2 Reguler + 1 VIP, Reguler sisa 5 dan VIP sisa 0 · **When** QR-nya dipindai · **Then** sistem memperlakukannya sebagai kuota habis (AC-SCN-08.3), dengan info jenis tiket yang kuotanya tidak cukup.
+
 ### AC Lintas Area
 
 - **AC-PLT-02.1 (enkripsi kredensial)** — **Given** admin menyimpan kredensial QRIS · **When** data diperiksa di penyimpanan · **Then** kredensial tersimpan terenkripsi, tidak tampil di log aplikasi, dan tidak dikirim ke browser setelah disimpan.
@@ -486,9 +510,9 @@ bila kapasitas memungkinkan · **Could** = nice-to-have, bisa setelah MVP.
 
 | # | Topik | Pertanyaan | Terkait |
 |---|---|---|---|
-| Q1 | Email customer | Data diri hanya nama & no HP, tapi QR Tiket "terkirim ke email". Apakah email ditambahkan sebagai field **opsional** (usulan), wajib, atau pengiriman dialihkan ke WhatsApp/SMS? | BR-TRX-03, LP-07, PLT-03 |
+| Q1 | Email customer | ✅ **Terjawab (v1.1):** email **wajib**, dipakai untuk mengirim salinan QR Tiket, bukan untuk login. | BR-TRX-03, LP-07, PLT-03 |
 | Q2 | Refund | Apa kebijakan pengembalian default, dan apakah perlu status Dibatalkan/Refund di sistem? Siapa yang menulis teks kebijakan per event? | BR-RFD-*, ADM-09 |
-| Q3 | Kuota Cash | Transaksi Cash langsung memakai kuota walau belum dibayar → rawan pesanan fiktif. Perlu batas per no HP, masa berlaku reservasi Cash, atau kemampuan admin membatalkan? | BR-TRX-08 |
+| Q3 | Kuota Cash | 🟡 **Sebagian terjawab (v1.1):** Cash = Reserved dengan batas waktu (default jam selesai event, bisa dipercepat Owner) + kuota otomatis kembali saat kedaluwarsa. Masih terbuka: perlu batas jumlah reservasi Cash aktif per no HP? | BR-TRX-08, OWN-17 |
 | Q4 | Batas waktu QRIS | Berapa lama QR pembayaran berlaku (usulan 15 menit)? Bagaimana menangani pembayaran yang masuk setelah kedaluwarsa? | BR-PAY-07, BR-PAY-08 |
 | Q5 | Metode bayar per event | Bisakah client menonaktifkan Cash atau QRIS untuk event tertentu? Apa yang tampil bila QRIS belum diatur? | BR-PAY-09 |
 | Q6 | Admin multi-event | Admin Dashboard "scoped ke 1 event". Jika satu client punya beberapa event, apakah perlu akun terpisah per event atau satu akun dengan pemilih event? Bolehkah satu event punya lebih dari satu admin? | BR-ACC-02 |
@@ -504,3 +528,5 @@ bila kapasitas memungkinkan · **Could** = nice-to-have, bisa setelah MVP.
 | Q16 | Tiket gratis | Apakah event gratis (harga Rp 0) perlu didukung? | BR-EVT-05 |
 | Q17 | Batas upload & domain kustom | Batas ukuran/format foto & video? Apakah client bisa memakai domain sendiri (bukan `*.uncle.id`) di masa depan? | OWN-05, LP-01 |
 | Q18 | Data pribadi | Berapa lama data customer (nama, no HP, email) disimpan setelah event selesai, dan apakah perlu persetujuan privasi di checkout (UU PDP)? | BR-ACC-04 |
+| Q19 | Harga pesanan baru dari reservasi kedaluwarsa | Saat admin membuat pesanan baru dari reservasi kedaluwarsa, harga mengikuti **harga saat ini** (usulan, konsisten dengan BR-EVT-07) atau harga pada reservasi lama? | BR-TKT-07, SCN-08 |
+| Q20 | Kuota sebagian | Untuk reservasi kedaluwarsa multi-jenis yang kuotanya hanya cukup sebagian (mis. Reguler ada, VIP habis), apakah admin boleh membuat pesanan baru untuk jenis yang masih tersedia saja? Usulan MVP: tidak (semua-atau-tidak-sama-sekali). | BR-TKT-07, AC-SCN-08.6 |

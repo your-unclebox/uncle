@@ -4,11 +4,17 @@
 > `OWN-xx`, `ADM-xx`, `SCN-xx`) dan aturan bisnis (`BR-xx`) merujuk ke `PRD.md`.
 > Keputusan desain yang belum ditentukan di dokumen sumber ditandai
 > **"Rekomendasi — bisa disesuaikan branding client"**. Hal yang bergantung pada
-> asumsi PRD (mis. email opsional, batas waktu QRIS 15 menit, Cek Pesanan via
-> kode pesanan + no HP) ditandai **(ikut asumsi PRD)**.
+> asumsi PRD (mis. batas waktu QRIS 15 menit, Cek Pesanan via kode pesanan +
+> no HP) ditandai **(ikut asumsi PRD)**.
 >
 > **Contoh kasus:** event **Teater Bagol** (`teaterbagol.uncle.id`).
-> **Status:** Draft v1 · **Tanggal:** 6 Oktober 2026 · **Scope:** MVP
+> **Status:** Draft v1.1 · **Tanggal:** 7 Oktober 2026 · **Scope:** MVP
+>
+> **Perubahan v1.1 (patch dari v1, 6 Okt 2026):** (1) field **Email wajib** di
+> Step 2 (bukan opsional; untuk kirim salinan QR Tiket, bukan login);
+> (2) Payment Settings memakai **3 kredensial** (Merchant Code, API Key,
+> Private Key); (3) Scan Tiket punya state baru **Reservasi Kedaluwarsa**
+> (Wireframe §4 (k), User Flow §6) — PRD SCN-08 / BR-TKT-07.
 
 **Tiga permukaan utama:**
 
@@ -40,7 +46,7 @@ flowchart TD
     F --> F1{"Total ≥ 1 dan ≤ kuota tersisa?"}
     F1 -- "Tidak" --> F2["⚠️ Stepper berhenti di batas kuota / tombol lanjut nonaktif"]
     F2 --> F
-    F1 -- "Ya" --> G["Step 2: isi Nama, No HP, Email (opsional)"]
+    F1 -- "Ya" --> G["Step 2: isi Nama, No HP, Email (semua wajib)"]
     G --> G1{"Data valid?"}
     G1 -- "Tidak" --> G2["⚠️ Pesan error per field"]
     G2 --> G
@@ -65,10 +71,10 @@ flowchart TD
     N -- "Tidak, waktu habis" --> N1["⚠️ 'Pembayaran kedaluwarsa', kuota dilepas → tombol 'Pesan Ulang'"]
     N1 --> F
     N -- "Ya" --> T2["Status Lunas → Step 5: QR Tiket + kode pesanan"]
-    T --> Q{"Email diisi?"}
+    T --> Q{"Email QR Tiket terkirim?"}
     T2 --> Q
-    Q -- "Ya" --> Q1["Kirim email QR Tiket → '✅ Sudah dikirim ke email'"]
-    Q -- "Tidak" --> Q2["Saran: screenshot / simpan kode pesanan untuk Cek Pesanan"]
+    Q -- "Ya" --> Q1["'✅ Juga sudah dikirim ke email kamu'"]
+    Q -- "Gagal" --> Q2["⚠️ 'Email tidak terkirim' → saran screenshot / simpan kode pesanan untuk Cek Pesanan"]
 ```
 
 **Catatan flow:**
@@ -143,7 +149,7 @@ flowchart TD
     A3 --> B["Admin Dashboard event: Ringkasan + Daftar Transaksi"]
     B --> B1{"QRIS sudah terhubung?"}
     B1 -- "Belum" --> B2["Banner: 'QRIS belum aktif — pembeli hanya bisa Cash' + tombol 'Atur QRIS'"]
-    B2 --> P["Payment Settings: provider, API Key, Private Key"]
+    B2 --> P["Payment Settings: provider, Merchant Code, API Key, Private Key"]
     P --> P1{"Uji koneksi berhasil?"}
     P1 -- "Tidak" --> P2["⚠️ 'Gagal terhubung' + alasan dari provider"]
     P2 --> P
@@ -174,6 +180,16 @@ flowchart TD
     E -- "Cash, belum bayar" --> G["KUNING: detail + checkbox 'Sudah terima uang' + 'Konfirmasi Lunas'"]
     G --> G1["Centang → Konfirmasi Lunas"]
     G1 --> F
+    E -- "Cash, reservasi lewat batas waktu" --> R["⚠️ 'Reservasi Kedaluwarsa — kuota sudah dilepas otomatis'"]
+    R --> R0{"Sudah pernah dibuatkan pesanan baru?"}
+    R0 -- "Ya" --> R5["⚠️ MERAH: 'Sudah dibuatkan pesanan baru UNC-…' + [Buka Pesanan Baru]"]
+    R0 -- "Belum" --> R1{"Kuota jenis tiket ini masih ada sekarang?"}
+    R1 -- "Ada" --> R2["KUNING: detail + tagihan + checkbox 'Sudah terima uang' + 'Buat Pesanan Baru dengan Data Ini'"]
+    R2 --> R3["Centang → buat pesanan baru (kode & QR baru, langsung Lunas)"]
+    R3 --> R3a{"Berhasil?"}
+    R3a -- "Ya" --> F
+    R3a -- "Kuota keburu habis" --> R4
+    R1 -- "Tidak ada" --> R4["⚠️ MERAH: 'Maaf, kuota sudah habis karena reservasi tidak diambil tepat waktu' (tanpa aksi)"]
     F --> H["Klik 'Tandai Tiket Diambil'"]
     H --> H1{"Berhasil disimpan?"}
     H1 -- "Didahului admin lain" --> E4
@@ -184,7 +200,15 @@ flowchart TD
     E2 --> C
     E3 --> C
     E4 --> C
+    R4 --> C
+    R5 --> C
 ```
+
+**Catatan flow Reservasi Kedaluwarsa:** pesanan baru dibuat di server sebagai
+transaksi terpisah (kode pesanan & QR Tiket baru, data pembeli & tiket sama)
+yang langsung **Lunas (Cash)**, lalu panel lanjut ke HIJAU "Siap Diambil"
+untuk pesanan baru tersebut. QR lama tetap tidak berlaku. Untuk pesanan
+multi-jenis, kuota **semua** jenis harus cukup (ikut asumsi PRD BR-TKT-07).
 
 ---
 
@@ -376,9 +400,10 @@ sheet)** dengan tombol kembali, supaya fokus & tidak tertutup keyboard.
 │ ⓘ Format no HP tidak valid. Contoh:      │
 │   081234567890                           │
 │                                          │
-│ Email (opsional)                         │ (ikut asumsi PRD)
-│ [________________________]               │
-│ Untuk menerima QR Tiket lewat email      │
+│ Email *                                  │
+│ [________________________]               │ type="email", autocomplete="email"
+│ QR Tiket dikirim ke email ini. Bukan     │ helper text (abu)
+│ untuk login — tidak perlu buat akun.     │
 │                                          │
 │ [            Lanjut  →                 ] │
 └──────────────────────────────────────────┘
@@ -482,8 +507,9 @@ sheet)** dengan tombol kembali, supaya fokus & tidak tertutup keyboard.
 │ │ 💵 Siapkan uang tunai Rp 150.000 dan │ │ info box kuning
 │ │ bayar ke panitia saat ambil tiket.   │ │
 │ └──────────────────────────────────────┘ │
-│ (tanpa email) Simpan kode pesanan atau   │
-│ screenshot halaman ini.                  │
+│ ✅ Juga sudah dikirim ke email kamu       │ (hanya bila email terkirim)
+│ Simpan kode pesanan atau screenshot      │
+│ halaman ini sebagai cadangan.            │
 └──────────────────────────────────────────┘
 ```
 
@@ -785,11 +811,15 @@ Desktop: form 560px di tengah · Mobile: full-width, 1 kolom
 │   rekening akun QRIS kamu. Uncle tidak   │
 │   menyimpan dana.                        │
 │ Provider         [ Tripay ▾ ]            │
-│ API Key          [______________] 👁      │
-│ Private Key      [______________] 👁      │
-│ ⓘ Cara mendapatkan API Key ↗             │
+│ Merchant Code *  [______________] 👁      │
+│ API Key *        [______________] 👁      │
+│ Private Key *    [______________] 👁      │
+│ ⓘ Cara mendapatkan Merchant Code,        │
+│   API Key & Private Key Tripay ↗         │
 │ [         Simpan & Uji Koneksi         ] │
 └──────────────────────────────────────────┘
+ Ketiga field wajib; tombol tetap aktif, field kosong ditandai "Wajib diisi"
+ saat Simpan ditekan.
 
 (b) Sedang menguji
 │ [ ◌ Menguji koneksi…            ] (disabled)│
@@ -797,8 +827,9 @@ Desktop: form 560px di tengah · Mobile: full-width, 1 kolom
 (c) Terhubung
 │ Status Koneksi   ✅ Terhubung             │
 │                  Diuji 12 Nov 2026 10:00  │
+│ Merchant Code    [ ●●●●●●●●●●2345 ]       │ (masked, 4 char terakhir)
 │ API Key          [ ●●●●●●●●●●a3f9 ]       │ (masked, 4 char terakhir)
-│ Private Key      [ ●●●●●●●●●●●●●● ]       │
+│ Private Key      [ ●●●●●●●●●●●●●● ]       │ (masked penuh)
 │ [ Ganti Kredensial ]  [ Uji Ulang ]       │
 
 (d) Gagal
@@ -916,6 +947,81 @@ sekilas di venue yang ramai/gelap.
 │ ⛔ TRANSAKSI DIBATALKAN   │
 ```
 
+**(k) Reservasi Kedaluwarsa** — QR Tiket Cash yang batas reservasinya sudah
+lewat (kuota sudah dilepas sistem). Sistem langsung mengecek kuota jenis tiket
+tersebut **saat ini** dan menampilkan salah satu dari tiga varian:
+
+(k1) Kuota masih ada (panel KUNING)
+```
+├─────────────────────────┤
+│ ⏱ RESERVASI KEDALUWARSA │ bg kuning muda
+│ Kuota sudah dilepas     │
+│ otomatis                │
+│ Batas: 20 Des 19:00     │
+│ Nama   : Siti R.        │
+│ Tiket  : 1× VIP         │
+│ Kuota sekarang: ✔ ada   │ (VIP sisa 4)
+│ ┌─────────────────────┐ │
+│ │ TAGIH  Rp 150.000   │ │ harga saat ini (ikut asumsi PRD Q19)
+│ └─────────────────────┘ │
+│ [☐] Sudah terima uang   │ target sentuh 48px
+│ ┌─────────────────────┐ │
+│ │ Buat Pesanan Baru   │ │ tombol primer 56px, nonaktif
+│ │ dengan Data Ini     │ │ sampai dicentang
+│ └─────────────────────┘ │
+│ Pesanan baru langsung   │ caption, body-sm
+│ Lunas. QR lama tidak    │
+│ berlaku; QR baru dikirim│
+│ ke email pembeli.       │
+│ [ Batal / Scan Lain ]   │
+└─────────────────────────┘
+```
+Setelah berhasil → panel berubah **HIJAU** seperti (e) untuk pesanan baru:
+```
+│ ✅ PESANAN BARU — LUNAS   │
+│ Kode   : UNC-9H2W5X     │ kode pesanan BARU (menggantikan UNC-2M8R4T)
+│ Bayar  : ✔ Lunas (Cash, │
+│          oleh Rina 19:20)│
+│ [ Tandai Tiket Diambil ]│ aktif
+```
+
+(k2) Kuota habis (panel MERAH, tanpa aksi)
+```
+├─────────────────────────┤
+│ ⛔ RESERVASI KEDALUWARSA │ bg merah muda, getar panjang
+│ Kuota sudah dilepas     │
+│ otomatis                │
+│ Nama   : Siti R.        │
+│ Tiket  : 1× VIP         │
+│ ┌─────────────────────┐ │
+│ │ Maaf, kuota sudah   │ │ teks 18px, bisa ditunjukkan
+│ │ habis karena        │ │ ke pembeli
+│ │ reservasi tidak     │ │
+│ │ diambil tepat waktu.│ │
+│ └─────────────────────┘ │
+│ (multi-jenis: sebutkan  │
+│  jenis yang habis, mis. │
+│  "VIP habis")           │
+│ [   Scan Berikutnya   ] │ satu-satunya tombol
+└─────────────────────────┘
+```
+
+(k3) Sudah dibuatkan pesanan baru (panel MERAH)
+```
+│ ⛔ RESERVASI KEDALUWARSA │
+│ Sudah dibuatkan pesanan │
+│ baru UNC-9H2W5X oleh    │
+│ Rina, 19:20 (✔ Diambil /│
+│ ○ Belum diambil)        │
+│ [ Buka Pesanan Baru ]   │ → panel hasil pesanan baru
+│ [   Scan Berikutnya   ] │
+```
+
+*Rekomendasi — bisa disesuaikan:* varian (k1) memakai warna Pending (kuning)
+karena masih ada aksi; (k2) & (k3) memakai warna Gagal (merah) karena tidak ada
+aksi di sistem. Bila kuota habis tepat saat tombol ditekan (direbut pembeli
+lain), panel berganti ke (k2) + toast merah "Kuota keburu habis".
+
 **(h) Izin kamera ditolak**
 ```
 ┌─────────────────────────┐
@@ -998,7 +1104,7 @@ peringatan + saran warna yang lebih gelap (lihat wireframe tab Branding).
 |---|---|---|---|---|---|
 | **Sukses** | `#15803D` | `#DCFCE7` | `#86EFAC` | ✔ | Lunas, Diambil, Terhubung, panel scan "Siap Diambil" |
 | **Gagal / Bahaya** | `#B91C1C` | `#FEE2E2` | `#FCA5A5` | ⛔ / ✘ | Kedaluwarsa (di sisi customer), QR tidak valid, sudah diambil (scan), gagal terhubung, error field |
-| **Pending / Peringatan** | `#B45309` | `#FEF3C7` | `#FCD34D` | ⏳ | Belum bayar (Cash), Menunggu pembayaran (QRIS), kuota hampir habis, banner QRIS belum aktif |
+| **Pending / Peringatan** | `#B45309` | `#FEF3C7` | `#FCD34D` | ⏳ | Belum bayar (Cash), Menunggu pembayaran (QRIS), kuota hampir habis, banner QRIS belum aktif, panel scan "Reservasi Kedaluwarsa" yang masih bisa dibuatkan pesanan baru |
 | **Info** | `#1D4ED8` | `#DBEAFE` | `#93C5FD` | ⓘ | Pesan informatif, Diundang |
 | **Netral** | `#475569` | `#F1F5F9` | `#CBD5E1` | ○ | Belum diambil, Draft, Habis, Dibatalkan, Kedaluwarsa (di tabel admin) |
 
@@ -1110,7 +1216,7 @@ bisa ditambah pilihan "tegas (4)" / "lembut (12)" per client.
 | `OrderSummary` | Daftar item terpilih, subtotal/total. | `variant: sidebar \| inline \| compact` | Landing desktop sidebar, Step 3, Step 5, Cek Pesanan |
 | `StickyCheckoutBar` | Bar bawah mobile: harga mulai / jumlah tiket + total + CTA sesuai step. | `label`, `total`, `ctaLabel`, `disabled` | Landing mobile |
 | `CheckoutStepper` | Indikator langkah 1–5 (Step 4 disembunyikan bila Cash). | `currentStep`, `method` | Landing — Tiket (Step 1–5) |
-| `CustomerForm` | Field Nama, No HP, Email opsional + validasi inline. | `errors{}` | Landing — Step 2 |
+| `CustomerForm` | Field Nama, No HP, Email (ketiganya wajib) + validasi inline; helper email "QR Tiket dikirim ke email ini. Bukan untuk login." | `errors{}` | Landing — Step 2 |
 | `PaymentMethodSelector` | Kartu radio QRIS / Cash dengan deskripsi singkat; QRIS disembunyikan bila tidak terhubung. | `methods[]`, `selected` | Landing — Step 3 |
 | `QRCodeDisplay` | Render QR dengan quiet zone, ukuran min 240px, tombol "Simpan QR". **Dua varian dengan label jelas** agar tidak tertukar. | `variant: payment \| ticket`, `value`, `caption` | Step 4 (payment), Step 5 & Cek Pesanan (ticket), email |
 | `PaymentCountdown` | Hitung mundur batas bayar; berubah warna mendekati habis. | `expiresAt` | Step 4 |
@@ -1154,8 +1260,8 @@ bisa ditambah pilihan "tegas (4)" / "lembut (12)" per client.
 | Komponen | Fungsi | Varian / Props utama | Dipakai di |
 |---|---|---|---|
 | `ScannerCameraView` | Akses kamera belakang, bingkai bidik, deteksi QR, jeda saat memproses, toggle senter. | `state: idle \| scanning \| processing \| paused \| denied` | Scan Tiket |
-| `ScanResultPanel` | Bottom sheet hasil scan berwarna sesuai hasil + data transaksi + aksi. | `result: readyPickup \| cashUnpaid \| alreadyPicked \| invalid \| otherEvent \| cancelled` | Scan Tiket |
-| `CashConfirmation` | Nominal tagihan besar + checkbox "Sudah terima uang" + tombol "Konfirmasi Lunas". | `amount` | `ScanResultPanel` (Cash) |
+| `ScanResultPanel` | Bottom sheet hasil scan berwarna sesuai hasil + data transaksi + aksi. | `result: readyPickup \| cashUnpaid \| alreadyPicked \| invalid \| otherEvent \| cancelled \| reservationExpiredReissuable \| reservationExpiredNoQuota \| reservationExpiredReissued` | Scan Tiket |
+| `CashConfirmation` | Nominal tagihan besar + checkbox "Sudah terima uang" + tombol aksi (nonaktif sampai dicentang). | `amount`, `mode: confirmPaid \| reissue` (`reissue` → label "Buat Pesanan Baru dengan Data Ini") | `ScanResultPanel` (Cash belum bayar & Reservasi Kedaluwarsa) |
 | `PickupButton` | Tombol "Tandai Tiket Diambil" besar; nonaktif + label alasan bila belum lunas. | `enabled`, `reason` | `ScanResultPanel`, Detail Transaksi |
 | `ScanSuccessOverlay` | Layar sukses penuh singkat + auto kembali ke kamera. | `name`, `summary` | Scan Tiket |
 | `ManualCodeInput` | Bottom sheet input kode pesanan (fallback). | — | Scan Tiket |
@@ -1314,7 +1420,8 @@ Transaksi. *(Rekomendasi — bisa disesuaikan)*
 |---|---|---|---|---|
 | **Kamera** | "Membuka kamera…" + kotak gelap | (idle) Bingkai bidik + "Arahkan ke QR tiket" | **Izin ditolak / tidak ada kamera:** instruksi + [Coba Lagi] + [Input Kode Manual]. **Browser tidak didukung / bukan HTTPS:** "Gunakan Chrome atau Safari terbaru" | Kamera aktif |
 | **Proses scan** | Kamera dijeda + getar pendek + skeleton panel "Memeriksa tiket…" (target ≤ 3 detik; > 5 detik → "Masih memeriksa… koneksi lambat") | — | **Offline / timeout:** "Tidak ada koneksi, coba lagi" — status **tidak** dianggap tersimpan | Panel hasil tampil |
-| **Hasil scan** | — | — | Panel MERAH: "QR tidak dikenali", "QR tidak berlaku untuk event ini" (tanpa data), "Transaksi dibatalkan", "Sudah diambil pada [waktu] oleh [admin]" | Panel HIJAU "Siap diambil" (QRIS lunas) / panel KUNING "Belum bayar (Cash)" |
+| **Hasil scan** | — | — | Panel MERAH: "QR tidak dikenali", "QR tidak berlaku untuk event ini" (tanpa data), "Transaksi dibatalkan", "Sudah diambil pada [waktu] oleh [admin]", "Reservasi Kedaluwarsa — kuota sudah dilepas otomatis" + "Maaf, kuota sudah habis karena reservasi tidak diambil tepat waktu" (k2), "Sudah dibuatkan pesanan baru UNC-…" (k3) | Panel HIJAU "Siap diambil" (QRIS lunas) / panel KUNING "Belum bayar (Cash)" / panel KUNING "Reservasi Kedaluwarsa" dengan tombol "Buat Pesanan Baru dengan Data Ini" (k1) |
+| **Buat Pesanan Baru (Reservasi Kedaluwarsa)** | Tombol "Membuat pesanan…" (dikunci, cegah tap ganda) | — | Kuota keburu habis → panel berganti (k2) + toast "Kuota keburu habis"; sudah dibuat admin lain → panel (k3); gagal simpan/offline → "Gagal membuat pesanan, coba lagi" (tidak ada pesanan baru) | Panel HIJAU "Pesanan baru — Lunas" + kode pesanan baru + tombol "Tandai Tiket Diambil" aktif; toast "QR Tiket baru dikirim ke email pembeli" |
 | **Konfirmasi Lunas (Cash)** | Tombol "Menyimpan…" (dikunci) | — | Gagal simpan → toast merah "Gagal konfirmasi, coba lagi" (status tetap Belum) | Panel berubah HIJAU "Lunas — siap diambil", tombol Diambil aktif |
 | **Tandai Diambil** | Tombol "Menyimpan…" (dikunci, cegah tap ganda) | — | Didahului admin lain → panel MERAH "Sudah diambil oleh [admin]"; gagal simpan → "Gagal menyimpan, coba lagi" | **Layar sukses hijau penuh** "✔ Tiket diambil!" + getar → auto kembali ke kamera dalam 3 detik |
 | **Input Kode Manual** | Tombol "Cari" loading | — | "Kode tidak ditemukan untuk event ini" | Panel hasil sama seperti scan |
@@ -1335,6 +1442,11 @@ Transaksi. *(Rekomendasi — bisa disesuaikan)*
 | `scan.already_picked` | SUDAH DIAMBIL |
 | `scan.invalid` | QR TIDAK DIKENALI |
 | `scan.other_event` | QR TIDAK BERLAKU UNTUK EVENT INI |
+| `scan.reservation_expired` | Reservasi Kedaluwarsa — kuota sudah dilepas otomatis |
+| `scan.reservation_expired_no_quota` | Maaf, kuota sudah habis karena reservasi tidak diambil tepat waktu |
+| `scan.reissue_cta` | Buat Pesanan Baru dengan Data Ini |
+| `scan.reissue_done` | PESANAN BARU — LUNAS |
+| `scan.reissue_already` | Sudah dibuatkan pesanan baru [kode] |
 | `qris.connected` | ✅ Terhubung |
 | `qris.failed` | ✘ Gagal terhubung |
 | `qris.not_set` | ○ Belum diatur |
