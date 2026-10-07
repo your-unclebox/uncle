@@ -39,6 +39,13 @@ export async function startMockTripay(port = 0): Promise<MockTripay> {
   const server = createServer((req, res) => {
     void (async () => {
       const url = new URL(req.url ?? "/", "http://mock");
+      // Endpoint kontrol untuk E2E (proses terpisah): health & transaksi per merchant_ref.
+      if (url.pathname === "/__control/health") return send(res, 200, { ok: true });
+      if (url.pathname === "/__control/transaction") {
+        const merchantRef = url.searchParams.get("merchant_ref");
+        const found = state.created.find((body) => body.merchant_ref === merchantRef);
+        return send(res, found ? 200 : 404, found ?? { ok: false });
+      }
       const path = url.pathname.replace(/^\/api(-sandbox)?/, "");
       if (state.rejectApiKey || !req.headers.authorization?.startsWith("Bearer ")) {
         return send(res, 401, { success: false, message: "Invalid API Key" });
@@ -49,8 +56,8 @@ export async function startMockTripay(port = 0): Promise<MockTripay> {
       if (path === "/transaction/create" && req.method === "POST") {
         if (state.createFails) return send(res, 500, { success: false, message: "Server error" });
         const body = JSON.parse(await readBody(req)) as Record<string, unknown>;
-        state.created.push(body);
         const reference = `DEV-T${randomBytes(5).toString("hex").toUpperCase()}`;
+        state.created.push({ ...body, reference });
         state.statuses.set(reference, { status: "UNPAID", amount: Number(body.amount) });
         return send(res, 200, {
           success: true,
