@@ -1,6 +1,7 @@
 import "server-only";
 
 import { and, desc, eq, gte, ilike, inArray, notInArray, or, sql, type SQL } from "drizzle-orm";
+import { z } from "zod";
 
 import { phoneSearchDigits, toNationalPhone } from "@/lib/phone";
 import { auditLogs, emailOutbox, orderItems, orders, tickets } from "@/server/db/schema";
@@ -20,6 +21,9 @@ import { transitionOrderStatus } from "./order-transitions";
 import { adminOrderListQuerySchema, confirmCashInputSchema } from "./schemas";
 
 type Order = typeof orders.$inferSelect;
+
+// ID di path yang bukan UUID = pesanan tidak ada (404), bukan error query.
+const isUuid = (value: string) => z.uuid().safeParse(value).success;
 type Ticket = typeof tickets.$inferSelect;
 
 // --- ADM-03 Ringkasan ---------------------------------------------------------
@@ -211,6 +215,7 @@ export async function getAdminOrderDetail(
   repo: TenantScopedRepository,
   orderId: string,
 ): Promise<AdminOrderDetail> {
+  if (!isUuid(orderId)) throw new OrderNotFoundError();
   const order = await repo.findFirst(orders, eq(orders.id, orderId));
   if (!order) throw new OrderNotFoundError();
   const [items, ticket, reissuedTo, reissuedFrom, emails] = await Promise.all([
@@ -332,6 +337,7 @@ export async function confirmCashPayment(
   if (!actorUserId) throw new ActorRequiredError();
   const now = deps.now ?? new Date();
 
+  if (!isUuid(orderId)) throw new OrderNotFoundError();
   const order = await repo.findFirst(orders, eq(orders.id, orderId));
   if (!order) throw new OrderNotFoundError();
   if (order.paymentMethod !== "CASH" || order.status !== "RESERVED") {
