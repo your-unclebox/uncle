@@ -1,25 +1,6 @@
 import { expect } from "vitest";
 
-// Drizzle membungkus error driver; cari error Postgres asli di rantai `cause`.
-interface PgError {
-  code: string;
-  constraint_name?: string;
-}
-
-function findPgError(error: unknown): PgError | undefined {
-  let current: unknown = error;
-  while (current && typeof current === "object") {
-    if (
-      "code" in current &&
-      typeof current.code === "string" &&
-      /^[0-9A-Z]{5}$/.test(current.code)
-    ) {
-      return current as PgError;
-    }
-    current = "cause" in current ? current.cause : undefined;
-  }
-  return undefined;
-}
+import { findPgError } from "@/server/db/pg-error";
 
 export const PG = {
   NOT_NULL: "23502",
