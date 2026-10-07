@@ -26,6 +26,7 @@ interface CustomerOrderResponse {
     readonly customer: { name: string; phoneMasked: string };
     readonly items: ReadonlyArray<{ name: string; quantity: number }>;
     readonly ticket: { status: string; qrPayload?: string | null } | null;
+    readonly emailStatus: string | null;
   };
 }
 
@@ -39,6 +40,7 @@ export function toTicketView(order: CustomerOrderResponse["order"]): TicketOrder
     qrPayload: order.ticket?.qrPayload ?? null,
     ticketStatus: order.ticket?.status ?? null,
     customer: order.customer,
+    emailStatus: order.emailStatus,
   };
 }
 

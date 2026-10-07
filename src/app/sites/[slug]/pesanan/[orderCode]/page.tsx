@@ -69,7 +69,9 @@ async function OrderContent({ params, searchParams }: Props) {
                 qrPayload: order.ticket?.qrPayload ?? null,
                 ticketStatus: order.ticket?.status ?? null,
                 customer: order.customer,
+                emailStatus: order.emailStatus,
               }}
+              accessToken={accessToken}
             />
           </div>
         ) : (

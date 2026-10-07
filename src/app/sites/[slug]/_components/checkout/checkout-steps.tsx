@@ -373,10 +373,12 @@ function DoneStep({
     qrPayload: created.ticket?.qrPayload ?? null,
     ticketStatus: created.ticket?.status ?? null,
     customer: null,
+    // Email dikirim tepat setelah pesanan dibuat; status diperbarui lewat polling.
+    emailStatus: "PENDING",
   };
   return (
     <StepFrame title="Tiket Siap">
-      <TicketReady event={event} order={order} justCreated />
+      <TicketReady event={event} order={order} accessToken={created.accessToken} justCreated />
       <div className="flex flex-col gap-2 border-t border-border pt-4 md:flex-row">
         <Button variant="secondary" asChild>
           <a href={orderPageHref(created.order.code, created.accessToken)}>Buka halaman pesanan</a>
