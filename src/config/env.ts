@@ -14,6 +14,12 @@ const serverEnvSchema = z.object({
   SUPABASE_STORAGE_BUCKET: z.string().min(1).default("event-media"),
   PAYMENT_KEK_V1: optionalString,
   PAYMENT_KEK_ACTIVE_ID: z.string().min(1).default("v1"),
+  // T1: mode Tripay ditentukan per environment (dev/staging SANDBOX, production PRODUCTION).
+  PAYMENT_MODE: z.enum(["SANDBOX", "PRODUCTION"]).default("SANDBOX"),
+  // Hanya untuk uji lokal/E2E (mock gateway); kosong = URL resmi Tripay sesuai mode.
+  TRIPAY_API_BASE_URL: z.url().optional(),
+  // Origin dashboard untuk URL webhook, mis. https://app.uncle.id (default dari APP_BASE_DOMAIN).
+  APP_URL: z.url().optional(),
   QR_SIGNING_KEY: optionalString,
   CRON_SECRET: optionalString,
   BETTER_AUTH_SECRET: optionalString,
