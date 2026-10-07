@@ -5,7 +5,7 @@
 > opsional.
 >
 > **Sumber kebenaran (urutan prioritas bila bertentangan):**
-> `uncle-overview.md` → `PRD.md` (v1.4) → `UI-UX.md` (v1.4) → `DRD.md` (v1.2,
+> `uncle-overview.md` → `PRD.md` (v1.4) → `UI-UX.md` (v1.4) → `DRD.md` (v1.3,
 > acuan final tech stack & arsitektur) → dokumen ini. Dokumen ini **tidak
 > boleh** dipakai untuk membatalkan keputusan di empat dokumen tersebut.
 >
@@ -311,11 +311,11 @@ Aturan penempatan:
   `admin/` (dan sebaliknya), selain `src/components/**` dan `src/lib/**`.
 - **[WAJIB]** `src/integrations/**` hanya diakses dari `src/server/**`, tidak
   dari komponen UI.
-- **[KONFIRMASI] Di luar permintaan — perlu dikonfirmasi:** DRD menulis rewrite
-  ke `/_sites/{slug}`, tetapi di Next.js App Router folder berawalan `_` adalah
-  private folder (tidak membentuk route). Dokumen ini memakai `src/app/sites/[slug]`
-  dan middleware wajib menolak akses langsung `app.uncle.id/sites/*` (404).
-  Perlu persetujuan untuk menyesuaikan DRD.
+- **[WAJIB]** Landing page berada di `src/app/sites/[slug]`; middleware
+  me-rewrite `{slug}.uncle.id` ke `/sites/{slug}` dan menolak akses langsung
+  ke `/sites/*` dari host `app`/`www`/apex (404). Sudah disetujui dan dicatat di
+  DRD v1.3 (sebelumnya `/_sites/{slug}`, yang tidak membentuk route di App
+  Router karena folder berawalan `_` adalah private folder).
 
 ---
 
