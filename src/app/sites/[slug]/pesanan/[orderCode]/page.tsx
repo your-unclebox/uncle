@@ -8,6 +8,7 @@ import { Alert } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
 import { loadOrderPage } from "@/server/http/storefront-pages";
 
+import { PendingPayment } from "../../_components/checkout/pending-payment";
 import { TicketReady } from "../../_components/checkout/ticket-ready";
 import { EventFooter } from "../../_components/event-footer";
 import { EventHeader } from "../../_components/event-header";
@@ -35,7 +36,8 @@ async function OrderContent({ params, searchParams }: Props) {
   await connection();
   const { slug, orderCode } = await params;
   const token = (await searchParams).t;
-  const data = await loadOrderPage(slug, orderCode, typeof token === "string" ? token : null);
+  const accessToken = typeof token === "string" ? token : null;
+  const data = await loadOrderPage(slug, orderCode, accessToken);
   if (!data) notFound();
   const { event, order } = data;
 
@@ -44,7 +46,17 @@ async function OrderContent({ params, searchParams }: Props) {
       <EventHeader eventName={event.name} />
       <main className="mx-auto flex w-full max-w-xl flex-1 flex-col gap-6 px-4 py-8">
         <h1 className="text-2xl font-semibold">Pesanan Kamu</h1>
-        {order ? (
+        {order?.payment && accessToken ? (
+          <div className="rounded-xl border border-border bg-surface p-4 shadow-sm md:p-6">
+            <PendingPayment
+              orderCode={order.code}
+              accessToken={accessToken}
+              qrString={order.payment.qrString}
+              expiresAt={order.payment.expiresAt}
+              totalAmount={order.totalAmount}
+            />
+          </div>
+        ) : order ? (
           <div className="rounded-xl border border-border bg-surface p-4 shadow-sm md:p-6">
             <TicketReady
               event={event}

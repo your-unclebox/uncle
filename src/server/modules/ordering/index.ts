@@ -2,6 +2,7 @@ import "server-only";
 
 export { computeCashExpiresAt } from "./cash-reservation";
 export {
+  authorizeCustomerOrder,
   getCustomerOrder,
   lookupCustomerOrder,
   orderLookupInputSchema,
@@ -24,7 +25,7 @@ export {
   type OrderStatus,
   type PaymentMethod,
 } from "./order-state-machine";
-export { expireOrderIfDue, transitionOrderStatus } from "./order-transitions";
+export { expireOrder, expireOrderIfDue, transitionOrderStatus } from "./order-transitions";
 export { computeOrderTotal } from "./pricing";
 export { allocateQuota, lockTicketTypes } from "./quota";
 export { reissueExpiredOrder, type ReissueDeps, type ReissueResult } from "./reissue-expired-order";
@@ -37,3 +38,5 @@ export {
   type PublicOrderRequest,
   type ReissueExpiredOrderInput,
 } from "./schemas";
+export { allocateOrderLines, assertEventSellable, type OrderLine } from "./order-lines";
+export { insertOrderWithUniqueCode } from "./insert-order";

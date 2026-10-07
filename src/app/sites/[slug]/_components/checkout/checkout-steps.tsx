@@ -13,7 +13,8 @@ import { cn } from "@/lib/utils";
 import { customerSchema } from "@/server/modules/ordering/schemas";
 
 import { useCheckout, type CreatedOrder, type CustomerInput } from "./checkout-context";
-import { TicketReady } from "./ticket-ready";
+import { PaymentWaiting } from "./payment-waiting";
+import { TicketReady, type TicketOrderView } from "./ticket-ready";
 
 // Step 2–5 (UI-UX §1.3): inline di section Tiket (≥ md), full-screen sheet di HP.
 
@@ -65,7 +66,7 @@ function StepFrame({
 }) {
   const { step, method } = useCheckout();
   const total = method === "QRIS" ? 5 : 4;
-  const position = { select: 1, customer: 2, payment: 3, done: total }[step];
+  const position = { select: 1, customer: 2, payment: 3, pay: 4, done: total }[step];
   return (
     <div
       className="fixed inset-0 z-40 overflow-y-auto bg-surface md:static md:z-auto md:overflow-visible md:rounded-xl md:border md:border-border md:shadow-sm"
@@ -180,12 +181,14 @@ function PaymentStep({ onCustomerErrors }: { onCustomerErrors: (errors: Customer
   const toast = useToast();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [gatewayDown, setGatewayDown] = useState(false);
   // Satu key per percobaan pesanan → klik/jaringan ganda tidak membuat order ganda.
   const idempotencyKey = useRef(newIdempotencyKey());
 
   async function submit() {
     setPending(true);
     setError(null);
+    setGatewayDown(false);
     try {
       const created = await apiFetch<CreatedOrder>("/api/public/orders", {
         method: "POST",
@@ -231,7 +234,13 @@ function PaymentStep({ onCustomerErrors }: { onCustomerErrors: (errors: Customer
         }
       }
       idempotencyKey.current = newIdempotencyKey();
-      if (problem?.code === "SALES_CLOSED")
+      if (problem?.code === "PAYMENT_GATEWAY_ERROR") {
+        // AC-LP-09.7: kuota sudah dilepas server; tawarkan coba lagi / Cash.
+        setGatewayDown(true);
+        setError("Pembayaran QRIS sedang bermasalah. Coba lagi atau pilih Cash.");
+      } else if (problem?.code === "PAYMENT_METHOD_UNAVAILABLE") {
+        setError("Metode pembayaran ini sedang tidak tersedia. Pilih metode lain.");
+      } else if (problem?.code === "SALES_CLOSED")
         setError("Penjualan tiket untuk event ini sudah ditutup.");
       else if (problem?.code === "RATE_LIMITED") {
         setError("Terlalu banyak percobaan. Tunggu sebentar lalu coba lagi.");
@@ -300,40 +309,77 @@ function PaymentStep({ onCustomerErrors }: { onCustomerErrors: (errors: Customer
         </p>
       </div>
       {error ? <Alert tone="danger">{error}</Alert> : null}
+      {gatewayDown && event.paymentMethods.cash ? (
+        <Button
+          variant="secondary"
+          onClick={() => {
+            setMethod("CASH");
+            setGatewayDown(false);
+            setError(null);
+          }}
+        >
+          Pilih Cash
+        </Button>
+      ) : null}
       <Button loading={pending} onClick={submit}>
         {pending
           ? "Memproses pesanan…"
-          : method === "QRIS"
-            ? "Bayar Sekarang →"
-            : "Pesan Sekarang →"}
+          : gatewayDown
+            ? "Coba Lagi"
+            : method === "QRIS"
+              ? "Bayar Sekarang →"
+              : "Pesan Sekarang →"}
       </Button>
     </StepFrame>
   );
 }
 
-function DoneStep({ created }: { created: CreatedOrder }) {
+function orderPageHref(code: string, accessToken: string) {
+  return `/pesanan/${code}?t=${encodeURIComponent(accessToken)}`;
+}
+
+function PayStep({ created }: { created: CreatedOrder }) {
+  const { markPaid, reset } = useCheckout();
+  if (!created.payment) return null;
+  return (
+    <StepFrame title="Pembayaran QRIS">
+      <PaymentWaiting
+        orderCode={created.order.code}
+        accessToken={created.accessToken}
+        qrString={created.payment.qrString}
+        expiresAt={created.payment.expiresAt}
+        totalAmount={created.order.totalAmount}
+        onPaid={markPaid}
+        onRetry={reset}
+      />
+    </StepFrame>
+  );
+}
+
+function DoneStep({
+  created,
+  paidOrder,
+}: {
+  created: CreatedOrder;
+  paidOrder: TicketOrderView | null;
+}) {
   const { event, reset } = useCheckout();
+  const order: TicketOrderView = paidOrder ?? {
+    code: created.order.code,
+    status: created.order.status,
+    paymentMethod: created.order.paymentMethod,
+    totalAmount: created.order.totalAmount,
+    items: created.order.items,
+    qrPayload: created.ticket?.qrPayload ?? null,
+    ticketStatus: created.ticket?.status ?? null,
+    customer: null,
+  };
   return (
     <StepFrame title="Tiket Siap">
-      <TicketReady
-        event={event}
-        order={{
-          code: created.order.code,
-          status: created.order.status,
-          paymentMethod: created.order.paymentMethod,
-          totalAmount: created.order.totalAmount,
-          items: created.order.items,
-          qrPayload: created.ticket.qrPayload,
-          ticketStatus: created.ticket.status,
-          customer: null,
-        }}
-        justCreated
-      />
+      <TicketReady event={event} order={order} justCreated />
       <div className="flex flex-col gap-2 border-t border-border pt-4 md:flex-row">
         <Button variant="secondary" asChild>
-          <a href={`/pesanan/${created.order.code}?t=${encodeURIComponent(created.accessToken)}`}>
-            Buka halaman pesanan
-          </a>
+          <a href={orderPageHref(created.order.code, created.accessToken)}>Buka halaman pesanan</a>
         </Button>
         <Button variant="ghost" onClick={reset}>
           Pesan tiket lagi
@@ -344,7 +390,7 @@ function DoneStep({ created }: { created: CreatedOrder }) {
 }
 
 export function CheckoutSteps() {
-  const { step, created } = useCheckout();
+  const { step, created, paidOrder } = useCheckout();
   const [serverErrors, setServerErrors] = useState<CustomerErrors>({});
 
   // Sheet full-screen di HP: kunci scroll halaman di belakangnya.
@@ -363,6 +409,7 @@ export function CheckoutSteps() {
     return <CustomerStep key={JSON.stringify(serverErrors)} serverErrors={serverErrors} />;
   }
   if (step === "payment") return <PaymentStep onCustomerErrors={setServerErrors} />;
-  if (step === "done" && created) return <DoneStep created={created} />;
+  if (step === "pay" && created) return <PayStep created={created} />;
+  if (step === "done" && created) return <DoneStep created={created} paidOrder={paidOrder} />;
   return null;
 }

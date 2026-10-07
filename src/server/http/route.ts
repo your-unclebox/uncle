@@ -5,9 +5,14 @@ import { randomUUID } from "node:crypto";
 import { z } from "zod";
 
 import { getDb } from "@/server/db/client";
-import { requireOwner, resolveSession, type AuthContext } from "@/server/modules/identity";
+import {
+  requireEventAdmin,
+  requireOwner,
+  resolveSession,
+  type AuthContext,
+} from "@/server/modules/identity";
 import { EventNotFoundError } from "@/server/modules/ordering/errors";
-import { withTenant, type TenantScopedRepository } from "@/server/tenancy";
+import { withTenant, type TenantContext, type TenantScopedRepository } from "@/server/tenancy";
 
 import { problemResponse } from "./problem-details";
 import { assertSameOrigin } from "./request";
@@ -56,4 +61,19 @@ export async function withOwnerEvent<T>(
     if (!(await repo.getEvent())) throw new EventNotFoundError();
     return work(repo, auth);
   });
+}
+
+/**
+ * Area Admin event (DRD API §5): login + membership ke eventId; mutasi wajib
+ * same-origin. Bukan anggota event → 404 (bukan 403), tidak membocorkan event lain.
+ */
+export async function authenticateEventAdmin(
+  request: Request,
+  eventId: string,
+): Promise<{ auth: AuthContext; tenant: TenantContext }> {
+  if (MUTATING.has(request.method)) assertSameOrigin(request);
+  if (!uuid.safeParse(eventId).success) throw new EventNotFoundError();
+  const access = requireEventAdmin(await authenticate(request), eventId);
+  if (!access) throw new EventNotFoundError();
+  return access;
 }

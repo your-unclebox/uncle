@@ -5,6 +5,7 @@ import { cache } from "react";
 import { getDb } from "@/server/db/client";
 import { listPublicTicketTypes } from "@/server/modules/catalog";
 import { getCustomerOrder, OrderNotFoundError } from "@/server/modules/ordering";
+import { isQrisConnected } from "@/server/modules/payments";
 import { getQrSigningKey } from "@/server/modules/ticketing";
 import { findPublicEventBySlug, toPublicEvent } from "@/server/modules/tenancy";
 import { withTenant } from "@/server/tenancy";
@@ -22,8 +23,15 @@ export async function loadStorefrontTitle(slug: string): Promise<string | null> 
 export async function loadStorefront(slug: string) {
   const event = await findEvent(slug);
   if (!event) return null;
-  const ticketTypes = await withTenant(getDb(), { eventId: event.id }, listPublicTicketTypes);
-  return { event: toPublicEvent(event, new Date()), ticketTypes };
+  const { ticketTypes, qrisConnected } = await withTenant(
+    getDb(),
+    { eventId: event.id },
+    async (repo) => ({
+      ticketTypes: await listPublicTicketTypes(repo),
+      qrisConnected: await isQrisConnected(repo),
+    }),
+  );
+  return { event: toPublicEvent(event, new Date(), { qrisConnected }), ticketTypes };
 }
 
 export type StorefrontData = NonNullable<Awaited<ReturnType<typeof loadStorefront>>>;

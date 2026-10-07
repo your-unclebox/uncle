@@ -39,10 +39,14 @@ export interface StorefrontAvailability {
 /**
  * Penjualan dibuka bila event ACTIVE, sales_open, belum lewat jam selesai,
  * dan minimal satu metode bayar bisa dipakai saat ini (BR-EVT-03, BR-EVT-08,
- * BR-PAY-09). Cash ditutup setelah batas reservasinya lewat.
- * QRIS selalu nonaktif sampai integrasi Tripay (Fase 5).
+ * BR-PAY-09). Cash ditutup setelah batas reservasinya lewat; QRIS hanya bila
+ * kredensial client berstatus CONNECTED.
  */
-export function storefrontAvailability(event: EventRow, now: Date): StorefrontAvailability {
+export function storefrontAvailability(
+  event: EventRow,
+  now: Date,
+  qrisConnected = false,
+): StorefrontAvailability {
   const live =
     event.status === "ACTIVE" &&
     event.salesOpen &&
@@ -50,7 +54,7 @@ export function storefrontAvailability(event: EventRow, now: Date): StorefrontAv
     event.endsAt !== null &&
     event.endsAt > now;
   const cash = live && event.cashEnabled && computeCashExpiresAt(event) > now;
-  const qris = false;
+  const qris = live && qrisConnected;
   return { salesState: cash || qris ? "open" : "closed", paymentMethods: { cash, qris } };
 }
 
@@ -63,7 +67,11 @@ export function onPrimaryColor(primary: string): string {
 }
 
 /** Data landing page yang aman dikirim ke browser (tanpa id internal & PII). */
-export function toPublicEvent(event: EventRow, now: Date) {
+export function toPublicEvent(
+  event: EventRow,
+  now: Date,
+  options: { qrisConnected?: boolean } = {},
+) {
   const primary = event.primaryColor && isHexColor(event.primaryColor) ? event.primaryColor : null;
   return {
     slug: event.slug ?? "",
@@ -92,7 +100,7 @@ export function toPublicEvent(event: EventRow, now: Date) {
     refundPolicy: htmlToText(event.refundPolicyHtml),
     maxTicketsPerOrder: event.maxTicketsPerOrder,
     finished: event.status === "FINISHED" || (event.endsAt !== null && event.endsAt <= now),
-    ...storefrontAvailability(event, now),
+    ...storefrontAvailability(event, now, options.qrisConnected ?? false),
   };
 }
 

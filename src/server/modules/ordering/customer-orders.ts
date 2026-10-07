@@ -1,10 +1,10 @@
 import "server-only";
 
-import { eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { z } from "zod";
 
 import { maskPhone, normalizeIndonesianPhone } from "@/lib/phone";
-import { orderItems, orders, tickets } from "@/server/db/schema";
+import { orderItems, orders, paymentTransactions, tickets } from "@/server/db/schema";
 import { parseInput } from "@/server/http/validation-error";
 import { rebuildTicketQrPayload } from "@/server/modules/ticketing";
 import type { TenantScopedRepository } from "@/server/tenancy";
@@ -62,21 +62,54 @@ function ticketQrPayload(order: OrderRow, ticket: TicketRow | undefined, key: Bu
   return rebuildTicketQrPayload(ticket, key);
 }
 
+/** Order milik pemegang token akses (kode salah / event lain / token salah → 404 sama). */
+export async function authorizeCustomerOrder(
+  repo: TenantScopedRepository,
+  params: { orderCode: string; accessToken: string | null | undefined },
+  deps: CustomerOrderDeps,
+): Promise<OrderRow> {
+  const found = await findOrderByCode(repo, params.orderCode);
+  if (!found || !verifyOrderAccessToken(deps.qrSigningKey, found, params.accessToken, deps.now)) {
+    throw new OrderNotFoundError();
+  }
+  return found;
+}
+
+// QR pembayaran aktif (Step 4) — hanya selama order menunggu pembayaran QRIS.
+async function activePayment(repo: TenantScopedRepository, order: OrderRow) {
+  if (order.status !== "PENDING_PAYMENT") return null;
+  const [payment] = await repo.tx
+    .select()
+    .from(paymentTransactions)
+    .where(
+      repo.scope(
+        paymentTransactions,
+        and(eq(paymentTransactions.orderId, order.id), eq(paymentTransactions.status, "UNPAID")),
+      ),
+    )
+    .orderBy(desc(paymentTransactions.createdAt))
+    .limit(1);
+  return payment?.qrString
+    ? {
+        method: "QRIS" as const,
+        qrString: payment.qrString,
+        expiresAt: (order.expiresAt ?? payment.expiresAt)?.toISOString() ?? null,
+      }
+    : null;
+}
+
 /** Order + QR Tiket untuk customer (Step 5, halaman pesanan, Cek Pesanan). */
 export async function getCustomerOrder(
   repo: TenantScopedRepository,
   params: { orderCode: string; accessToken: string | null | undefined },
   deps: CustomerOrderDeps,
 ) {
-  const found = await findOrderByCode(repo, params.orderCode);
-  // Kode salah, milik event lain, atau token salah → 404 yang sama.
-  if (!found || !verifyOrderAccessToken(deps.qrSigningKey, found, params.accessToken, deps.now)) {
-    throw new OrderNotFoundError();
-  }
+  const found = await authorizeCustomerOrder(repo, params, deps);
   const order = await expireIfDue(repo, found, deps.now);
-  const [items, ticket] = await Promise.all([
+  const [items, ticket, payment] = await Promise.all([
     repo.findMany(orderItems, eq(orderItems.orderId, order.id)),
     repo.findFirst(tickets, eq(tickets.orderId, order.id)),
+    activePayment(repo, order),
   ]);
   return {
     code: order.orderCode,
@@ -92,6 +125,7 @@ export async function getCustomerOrder(
       quantity: item.quantity,
       unitPrice: Number(item.unitPrice),
     })),
+    payment,
     ticket: ticket
       ? {
           status: ticket.status,

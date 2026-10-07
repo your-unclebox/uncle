@@ -6,20 +6,28 @@ import { normalizeIndonesianPhone } from "@/lib/phone";
 import { getDb } from "@/server/db/client";
 import type { events } from "@/server/db/schema";
 import { listPublicTicketTypes } from "@/server/modules/catalog";
+import { getPaymentProvider } from "@/integrations/payment-gateway";
 import { RateLimitedError } from "@/server/modules/identity/errors";
 import {
+  authorizeCustomerOrder,
   createCashOrder,
   EventNotFoundError,
   getCustomerOrder,
   lookupCustomerOrder,
   OrderNotFoundError,
-  PaymentMethodUnavailableError,
   publicOrderRequestSchema,
 } from "@/server/modules/ordering";
+import {
+  checkOrderPayment,
+  createQrisOrder,
+  getActivePaymentKek,
+  isQrisConnected,
+} from "@/server/modules/payments";
 import { getQrSigningKey } from "@/server/modules/ticketing";
 import { findPublicEventBySlug, toPublicEvent } from "@/server/modules/tenancy";
 import { withTenant, type TenantScopedRepository } from "@/server/tenancy";
 
+import { getAppUrl } from "./app-url";
 import { getRateLimiter } from "./rate-limit";
 import { clientIp, readJson } from "./request";
 import { parseInput } from "./validation-error";
@@ -31,16 +39,22 @@ type EventRow = typeof events.$inferSelect;
 const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
 
-/** Slug → event publik → transaksi tenant (RLS aktif). */
-async function withStorefront<T>(
-  request: Request,
-  work: (event: EventRow, repo: TenantScopedRepository) => Promise<T>,
-): Promise<T> {
+/** Host → slug → event publik (ACTIVE/FINISHED). */
+async function resolveStorefrontEvent(request: Request): Promise<EventRow> {
   const hostHeader = request.headers.get("host") ?? new URL(request.url).host;
   const host = resolveHost(hostHeader, getServerEnv().APP_BASE_DOMAIN);
   if (host.kind !== "site") throw new EventNotFoundError();
   const event = await findPublicEventBySlug(getDb(), host.slug);
   if (!event) throw new EventNotFoundError();
+  return event;
+}
+
+/** Slug → event publik → transaksi tenant (RLS aktif). */
+async function withStorefront<T>(
+  request: Request,
+  work: (event: EventRow, repo: TenantScopedRepository) => Promise<T>,
+): Promise<T> {
+  const event = await resolveStorefrontEvent(request);
   return withTenant(getDb(), { eventId: event.id }, (repo) => work(event, repo));
 }
 
@@ -54,7 +68,9 @@ const ipKey = (request: Request) => clientIp(request) ?? "unknown";
 
 export async function getStorefrontEvent(request: Request) {
   await limit(`public:read:${ipKey(request)}`, 60, MINUTE);
-  return withStorefront(request, async (event) => ({ event: toPublicEvent(event, new Date()) }));
+  return withStorefront(request, async (event, repo) => ({
+    event: toPublicEvent(event, new Date(), { qrisConnected: await isQrisConnected(repo) }),
+  }));
 }
 
 export async function getStorefrontTicketTypes(request: Request) {
@@ -73,37 +89,75 @@ export async function placePublicOrder(request: Request) {
   const phone = normalizeIndonesianPhone(input.customer.phone);
   if (phone) await limit(`public:order:phone:${phone}`, 5, HOUR);
 
-  // QRIS menyusul bersama integrasi Tripay (Fase 5).
-  if (input.paymentMethod === "QRIS") throw new PaymentMethodUnavailableError("QRIS");
-
   const idempotencyKey = request.headers.get("idempotency-key")?.trim();
-  return withStorefront(request, async (_event, repo) => {
-    const result = await createCashOrder(
-      repo,
-      {
-        items: input.items,
-        customer: input.customer,
-        ...(idempotencyKey ? { idempotencyKey } : {}),
+  const orderInput = {
+    items: input.items,
+    customer: input.customer,
+    ...(idempotencyKey ? { idempotencyKey } : {}),
+  };
+  const event = await resolveStorefrontEvent(request);
+
+  if (input.paymentMethod === "QRIS") {
+    // DRD Architecture §5.1: order + kuota di-commit, lalu QR dibuat di gateway client.
+    const result = await createQrisOrder(getDb(), { eventId: event.id }, orderInput, {
+      provider: getPaymentProvider(),
+      // Diambil saat dipakai: QRIS yang belum terhubung tetap 422, bukan error konfigurasi.
+      get kek() {
+        return getActivePaymentKek();
       },
-      { qrSigningKey: getQrSigningKey(), ...withIp(clientIp(request)) },
-    );
+      appUrl: getAppUrl(),
+      ...withIp(clientIp(request)),
+    });
     return {
-      order: {
-        code: result.order.orderCode,
-        status: result.order.status,
-        paymentMethod: result.order.paymentMethod,
-        totalAmount: Number(result.order.totalAmount),
-        expiresAt: result.order.expiresAt?.toISOString() ?? null,
-        items: result.items.map((item) => ({
-          name: item.ticketTypeName,
-          quantity: item.quantity,
-          unitPrice: Number(item.unitPrice),
-        })),
-      },
+      order: orderSummary(result.order, result.items),
+      payment: result.payment?.qrString
+        ? {
+            method: "QRIS" as const,
+            qrString: result.payment.qrString,
+            expiresAt: result.order.expiresAt?.toISOString() ?? null,
+          }
+        : null,
+      ticket: null,
+      accessToken: result.accessToken,
+    };
+  }
+
+  return withTenant(getDb(), { eventId: event.id }, async (repo) => {
+    const result = await createCashOrder(repo, orderInput, {
+      qrSigningKey: getQrSigningKey(),
+      ...withIp(clientIp(request)),
+    });
+    return {
+      order: orderSummary(result.order, result.items),
+      payment: null,
       ticket: { status: result.ticket.status, qrPayload: result.qrPayload },
       accessToken: result.accessToken,
     };
   });
+}
+
+function orderSummary(
+  order: {
+    orderCode: string;
+    status: string;
+    paymentMethod: string;
+    totalAmount: bigint;
+    expiresAt: Date | null;
+  },
+  items: ReadonlyArray<{ ticketTypeName: string; quantity: number; unitPrice: bigint }>,
+) {
+  return {
+    code: order.orderCode,
+    status: order.status,
+    paymentMethod: order.paymentMethod,
+    totalAmount: Number(order.totalAmount),
+    expiresAt: order.expiresAt?.toISOString() ?? null,
+    items: items.map((item) => ({
+      name: item.ticketTypeName,
+      quantity: item.quantity,
+      unitPrice: Number(item.unitPrice),
+    })),
+  };
 }
 
 const withIp = (ip: string | null) => (ip ? { createdIp: ip } : {});
@@ -158,4 +212,27 @@ export async function lookupPublicOrder(request: Request) {
   return withStorefront(request, (_event, repo) =>
     lookupCustomerOrder(repo, body, { qrSigningKey: getQrSigningKey(), now: new Date() }),
   );
+}
+
+/** POST …/payment/check — tombol "Cek Status" Step 4 (DRD API §2, 6/menit/order). */
+export async function checkPublicOrderPayment(request: Request, orderCode: string) {
+  await limit(`public:payment-check:${orderCode.toUpperCase()}`, 6, MINUTE);
+  const event = await resolveStorefrontEvent(request);
+  const deps = { qrSigningKey: getQrSigningKey(), now: new Date() };
+  const accessToken = accessTokenFrom(request);
+  const order = await withTenant(getDb(), { eventId: event.id }, (repo) =>
+    authorizeCustomerOrder(repo, { orderCode, accessToken }, deps),
+  );
+  if (order.paymentMethod === "QRIS" && order.status !== "PAID") {
+    await checkOrderPayment(
+      getDb(),
+      { eventId: event.id, orderId: order.id },
+      {
+        provider: getPaymentProvider(),
+        kek: getActivePaymentKek(),
+        qrSigningKey: deps.qrSigningKey,
+      },
+    );
+  }
+  return getPublicOrder(request, orderCode);
 }
