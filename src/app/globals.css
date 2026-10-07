@@ -83,3 +83,14 @@ body {
     transition-duration: 0.01ms !important;
   }
 }
+
+/*
+ * Landing page memakai warna client (UI-UX §2.1): --color-primary dan
+ * --color-on-primary di-set inline per event; hover = −10% dan subtle = 10%
+ * dihitung otomatis dari Primary.
+ */
+.storefront-theme {
+  --color-primary-hover: color-mix(in srgb, var(--color-primary) 88%, black);
+  --color-primary-subtle: color-mix(in srgb, var(--color-primary) 10%, white);
+  background: var(--neutral-0);
+}
