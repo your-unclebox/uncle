@@ -5,7 +5,23 @@
 > **"Rekomendasi"** beserta alasannya. Semua pertanyaan terbuka dikumpulkan di
 > bagian **Pertanyaan Terbuka** di akhir dokumen.
 >
-> **Status:** Draft v1 · **Tanggal:** 6 Oktober 2026 · **Scope:** MVP
+> **Status:** Draft v1.3 · **Tanggal:** 7 Oktober 2026 · **Scope:** MVP
+>
+> **Perubahan v1.1 (patch dari v1, 6 Okt 2026):** hosting final (D5 — Tech
+> Stack §2, Deployment, Integrations §3); batas reservasi Cash mengikuti
+> overview terbaru (D6 — §Database 5.2); endpoint baru "buat pesanan baru dari
+> reservasi kedaluwarsa" (D7 — API §5); T6 & T7 dihapus dari Pertanyaan Terbuka
+> karena sudah diputuskan; pertanyaan teknis baru T18–T22.
+>
+> **Perubahan v1.2:** `events.ends_at` wajib (overview: Jam Selesai wajib,
+> default Jam Mulai + 3 jam di form); fallback "mulai + 4 jam" dihapus; T20
+> terjawab dan dihapus.
+>
+> **Perubahan v1.3:** target rewrite landing page diganti dari `/_sites/{slug}`
+> menjadi `/sites/{slug}` (folder `src/app/sites/[slug]`), karena di Next.js
+> App Router folder berawalan `_` adalah private folder dan tidak membentuk
+> route. Akses langsung ke `/sites/*` dari host selain `{slug}.uncle.id` → 404
+> (Architecture §1 & §4). Disetujui pemilik project; lihat `AI-CODING-RULES.md`.
 
 > **⚠️ Keputusan baru dari brief DRD yang mengubah dokumen sebelumnya**
 >
@@ -15,8 +31,12 @@
 > | D2 | **Cash = status `RESERVED` dengan batas waktu**, bukan langsung Lunas; reservasi yang kedaluwarsa **melepas kuota**. | Menggantikan PRD BR-TRX-08 ("kuota baru kembali jika admin membatalkan"). Scanner butuh hasil baru "Reservasi kedaluwarsa". Menjawab sebagian PRD Q3. |
 > | D3 | **1 event = 1 tenant**; kredensial QRIS per tenant, diinput sendiri oleh client. | Mengonfirmasi PRD BR-PAY-02; menjawab sebagian PRD Q7 (kredensial per event). |
 > | D4 | Uncle **tidak memproses refund finansial**, hanya menandai status `CANCELLED` / `REFUNDED`. | Mengonfirmasi asumsi PRD BR-RFD-01/03; menjawab sebagian PRD Q2. |
+> | D5 | **Hosting final:** Vercel Pro · Supabase Pro (Postgres + Storage, Singapore) · Cloudflare Free (DNS) · Resend Free (naik paket sesuai volume). Data pembeli boleh disimpan di Singapura. | Menggantikan rekomendasi Neon / Cloudflare R2. Menjawab T6 & T7 (dihapus). Lihat Tech Stack §2 & Deployment. |
+> | D6 | **Batas reservasi Cash default = jam selesai event** (bukan H-1, bukan jam mulai); Owner bisa mempercepat per event. | Mengganti default `UNTIL_EVENT_START` di §Database 5.2. Sejalan dengan PRD v1.1 BR-TRX-08. Menjawab sebagian T5. |
+> | D7 | Scan reservasi Cash kedaluwarsa → admin bisa **membuat pesanan baru berstatus Lunas** dengan data yang sama bila kuota masih ada. | Endpoint baru `…/orders/{orderId}/reissue` (API §5), kolom `orders.reissued_from_order_id`. Sejalan dengan PRD SCN-08 / BR-TKT-07 & UI-UX Scan (k). |
 >
-> `PRD.md` dan `UI-UX.md` perlu disesuaikan dengan D1 & D2.
+> `PRD.md` dan `UI-UX.md` sudah disesuaikan dengan D1, D2, D6, D7 di v1.1
+> (kecuali yang tercatat di Pertanyaan Terbuka B).
 
 ---
 
@@ -37,17 +57,17 @@ belum ada kebutuhan skala yang membenarkan microservices.
    teaterbagol.uncle.id  │   app.uncle.id/owner      app.uncle.id/admin/{eventId}            │
         │                │        │                  app.uncle.id/admin/{eventId}/scan       │
         └────────────────┴────────┴──────────────┬────────────────────────────────────────────┘
-                                                 │ HTTPS (wildcard cert *.uncle.id)
+                                                 │ HTTPS (TLS otomatis Vercel, lihat Deployment §3)
                                                  ▼
                          ┌───────────────────────────────────────────────┐
-                         │  DNS + CDN / Edge  (*.uncle.id, app.uncle.id)  │
+                         │  DNS Cloudflare → Vercel Pro Edge (sin1)       │
                          └───────────────────────┬───────────────────────┘
                                                  ▼
 ┌──────────────────────────────────────────────────────────────────────────────────────────┐
 │                         UNCLE WEB APP (Next.js, modular monolith)                         │
 │                                                                                          │
 │  ┌──────────────── Edge Middleware: Host-based routing & tenant resolution ────────────┐ │
-│  │  {slug}.uncle.id  → rewrite ke /_sites/{slug}/…   (Landing Page + Public API)       │ │
+│  │  {slug}.uncle.id  → rewrite ke /sites/{slug}/…    (Landing Page + Public API)       │ │
 │  │  app.uncle.id     → /owner/…, /admin/{eventId}/…, /api/…                            │ │
 │  │  uncle.id, www    → halaman marketing Uncle                                         │ │
 │  └─────────────────────────────────────────────────────────────────────────────────────┘ │
@@ -67,9 +87,9 @@ belum ada kebutuhan skala yang membenarkan microservices.
         │               │                │                  │                  │
         ▼               ▼                ▼                  ▼                  ▼
 ┌──────────────┐ ┌─────────────┐ ┌──────────────┐ ┌──────────────────┐ ┌──────────────────┐
-│ PostgreSQL   │ │ Redis       │ │ Object       │ │ Email Provider   │ │ Payment Gateway  │
-│ (data utama, │ │ (rate limit,│ │ Storage (R2/ │ │ (Resend/SES)     │ │ (Tripay, QRIS    │
-│ RLS, outbox) │ │ cache kecil)│ │ S3) + CDN    │ │ + bounce webhook │ │ dinamis) — akun  │
+│ PostgreSQL   │ │ Redis       │ │ Supabase     │ │ Email Provider   │ │ Payment Gateway  │
+│ Supabase Pro │ │ (rate limit,│ │ Storage +    │ │ (Resend)         │ │ (Tripay, QRIS    │
+│ (Singapore)  │ │ cache kecil)│ │ CDN (SG)     │ │ + bounce webhook │ │ dinamis) — akun  │
 └──────────────┘ └─────────────┘ └──────────────┘ └──────────────────┘ │ MILIK TIAP CLIENT│
         ▲                                                              └────────┬─────────┘
         │                    ┌───────────────────────────┐                      │
@@ -115,12 +135,14 @@ event.
 
 ```
 GET https://teaterbagol.uncle.id/
- 1. DNS  *.uncle.id  → CDN/hosting (wildcard record)
- 2. TLS  sertifikat wildcard *.uncle.id
+ 1. DNS  *.uncle.id  → Vercel (wildcard CNAME di Cloudflare, DNS-only)
+ 2. TLS  sertifikat per host diterbitkan otomatis oleh Vercel (lihat Deployment §3)
  3. Middleware baca Host = "teaterbagol.uncle.id"
       ├─ host ∈ {app, www, apex}        → routing normal
       ├─ subdomain ∈ daftar cadangan    → 404
-      └─ selain itu: slug = "teaterbagol" → rewrite ke /_sites/teaterbagol
+      └─ selain itu: slug = "teaterbagol" → rewrite ke /sites/teaterbagol
+         (route src/app/sites/[slug]; request langsung ke path /sites/* dari
+          host app/www/apex → 404, supaya landing hanya bisa diakses via subdomain)
  4. Server: SELECT event WHERE slug = 'teaterbagol' AND status IN ('ACTIVE','FINISHED')
       ├─ tidak ada / DRAFT → halaman "Event tidak ditemukan" (HTTP 404)
       └─ ada → render landing (konten di-cache; kuota diambil dinamis)
@@ -183,6 +205,9 @@ Scanner (HP) decode QR di perangkat → POST /api/admin/events/{eventId}/scan {p
 Tandai diambil → POST .../tickets/{id}/check-in
  → UPDATE tickets SET status='CHECKED_IN' WHERE id=$1 AND status='ISSUED'
       AND order.status='PAID'  (atomik; 0 baris → 409 ALREADY_CHECKED_IN)
+Hasil RESERVATION_EXPIRED + kuota cukup → admin centang "Sudah terima uang"
+ → POST .../orders/{oldOrderId}/reissue → order BARU langsung PAID + ticket baru
+ → lanjut "Tandai diambil" pada ticket baru (lihat §Database 5.2a)
 ```
 
 ### 6. Pekerjaan Latar (Background Jobs)
@@ -192,7 +217,7 @@ Tandai diambil → POST .../tickets/{id}/check-in
 | `expire-orders` | 1 menit | Order `PENDING_PAYMENT`/`RESERVED` dengan `expires_at < now()` → `EXPIRED`, ticket → `VOID`, kuota dilepas. Pakai `FOR UPDATE SKIP LOCKED`, batch 100. |
 | `process-email-outbox` | 1 menit (+ dipicu langsung setelah commit) | Kirim email `PENDING`, retry backoff eksponensial (maks 5 kali). |
 | `reconcile-qris` | 5 menit | Untuk transaksi QRIS `UNPAID` berumur > 2 menit, cek status ke API gateway (fallback jika webhook hilang). |
-| `finish-events` | 15 menit | Event `ACTIVE` yang melewati waktu selesai → `FINISHED` (PRD BR-EVT-08). |
+| `finish-events` | 15 menit | Event `ACTIVE` dengan `ends_at < now()` → `FINISHED` (PRD BR-EVT-08). |
 | `purge-webhook-inbox` | Harian | Arsipkan/hapus raw webhook > 90 hari *(Rekomendasi)*. |
 
 **Ketepatan kuota tidak bergantung pada cron:** setiap transaksi alokasi kuota
@@ -204,10 +229,11 @@ habis padahal tersedia.
 
 ## Tech Stack
 
-> Semua pilihan di bawah adalah **Rekomendasi**. Kriteria: tim kecil/solo
-> developer, setup cepat, satu bahasa end-to-end, dukungan webhook & database
-> relasional yang solid, biaya awal rendah, latensi rendah untuk pengguna
-> Indonesia.
+> **Hosting & layanan infrastruktur sudah final (keputusan D5, §2 di bawah).**
+> Pilihan library/framework lainnya tetap **Rekomendasi**. Kriteria: tim
+> kecil/solo developer, setup cepat, satu bahasa end-to-end, dukungan webhook &
+> database relasional yang solid, biaya awal rendah, latensi rendah untuk
+> pengguna Indonesia.
 
 ### 1. Stack Utama (rekomendasi)
 
@@ -217,29 +243,42 @@ habis padahal tersedia.
 | Framework web | **Next.js (App Router)** | Satu codebase untuk landing (SSR/ISR, SEO, cepat di HP), dashboard, dan API route handlers. **Middleware Host-based rewrite** adalah pola standar multi-tenant subdomain. |
 | UI | **Tailwind CSS + shadcn/ui** (Radix) | Komponen aksesibel siap pakai; tema berbasis CSS variables cocok untuk token warna client (`--color-primary`) di UI-UX Design System. |
 | Form & validasi | **Zod** + React Hook Form | Schema Zod yang sama dipakai di client & server (validasi input wajib di server). |
-| Database | **PostgreSQL 16** | Transaksi ACID, `SELECT … FOR UPDATE`, `CHECK` constraint, partial unique index, RLS, `citext`, `jsonb` — semua dibutuhkan untuk kuota, idempotensi, dan isolasi tenant. |
-| ORM / query | **Drizzle ORM** + drizzle-kit migrations | Dekat dengan SQL (mudah menulis locking, CHECK, partial index, RLS policy), ringan di serverless. Alternatif: Prisma (DX bagus, tapi constraint/RLS lanjutan lebih banyak raw SQL). |
+| Database | **PostgreSQL di Supabase Pro** (versi mayor yang disediakan Supabase untuk project baru) | Transaksi ACID, `SELECT … FOR UPDATE`, `CHECK` constraint, partial unique index, RLS, `citext`, `jsonb` — semua dibutuhkan untuk kuota, idempotensi, dan isolasi tenant. **Final (D5).** Supabase hanya dipakai sebagai Postgres + Storage; **Supabase Auth & Data API (PostgREST) tidak dipakai** (lihat Security §3). |
+| ORM / query | **Drizzle ORM** + drizzle-kit migrations | Dekat dengan SQL (mudah menulis locking, CHECK, partial index, RLS policy), ringan di serverless. Koneksi dari Vercel lewat **Supavisor pooler mode transaction** (port 6543, driver dengan `prepare: false`); migrasi lewat koneksi langsung/session. Alternatif: Prisma (DX bagus, tapi constraint/RLS lanjutan lebih banyak raw SQL). |
 | Auth | **Better Auth** (email + password, session di DB) atau session custom | Session berbasis cookie + tabel DB, mendukung invite flow, rate limit login, 2FA TOTP untuk Owner. Library dipilih yang menyimpan session di Postgres kita sendiri (tidak ada vendor lock-in data user). |
 | Payment | **Tripay** (adapter `PaymentProvider`) | Keputusan brief. Diakses lewat interface `PaymentProvider` supaya provider lain (mis. Midtrans, Xendit, Duitku) bisa ditambah tanpa mengubah modul ordering. |
-| Email | **Resend** + React Email (alternatif: Amazon SES) | API sederhana, webhook bounce/delivered, template berbasis React. SES lebih murah di volume besar. |
-| Object storage | **Cloudflare R2** (S3-compatible) | Tanpa biaya egress (foto/video dokumentasi diakses publik), presigned upload langsung dari browser. |
+| Email | **Resend** (tier gratis di awal) + React Email | **Final (D5).** API sederhana, webhook bounce/delivered, template berbasis React. Upgrade paket berdasarkan volume (lihat Integrations §2). |
+| Object storage | **Supabase Storage** (project Supabase yang sama, Singapore) | **Final (D5).** Satu provider untuk database & file dokumentasi event; signed upload URL langsung dari browser; bucket publik disajikan lewat CDN Supabase. |
 | Cache & rate limit | **Upstash Redis** (serverless) | Rate limiting per IP/no HP/endpoint yang konsisten lintas instance serverless. |
-| Scheduler | **Vercel Cron** (memanggil `/api/internal/cron/*`) | Tidak perlu server worker terpisah; job idempotent & berbasis tabel DB (outbox). Interval per menit butuh plan berbayar. |
+| Scheduler | **Vercel Cron** (memanggil `/api/internal/cron/*`) | Tidak perlu server worker terpisah; job idempotent & berbasis tabel DB (outbox). Interval per menit tersedia di Vercel Pro (D5). |
 | QR | `qrcode` (generate, server & client); `@zxing/browser` atau `qr-scanner` (decode di Scanner) | Decode di perangkat agar cepat & hemat bandwidth di venue. |
 | Monitoring | **Sentry** (error + performance), uptime monitor (Better Stack/UptimeRobot), log terstruktur | Wajib untuk melacak kegagalan webhook & email. |
 | Testing | **Vitest** (unit/integration dengan Postgres asli via Docker/Testcontainers), **Playwright** (E2E checkout & scan) | Alur kuota & tenant isolation harus diuji dengan DB nyata, bukan mock. |
 | CI/CD | **GitHub Actions** + preview deployment | Lint, typecheck, test, migrasi otomatis sebelum deploy. |
 
-### 2. Hosting (rekomendasi)
+### 2. Hosting (final — keputusan D5)
 
 | Komponen | Pilihan | Alasan |
 |---|---|---|
-| App | **Vercel** (plan Pro), region **Singapore (`sin1`)** | Dukungan wildcard domain + SSL otomatis, preview deployment, edge middleware, cron. Singapore = region terdekat ke Indonesia. |
-| Database | **Neon Postgres** atau **Supabase Postgres**, region **ap-southeast-1 (Singapore)** | Managed Postgres dengan connection pooling, backup & point-in-time recovery, branching DB untuk staging/preview (Neon). |
-| Storage | Cloudflare R2 + custom domain `cdn.uncle.id` | Lihat di atas. |
-| DNS | Sesuai kebutuhan wildcard SSL penyedia hosting (lihat Deployment). | — |
+| App | **Vercel Pro**, function region **Singapore (`sin1`)** | **Bukan Hobby:** Hobby melarang penggunaan komersial (Uncle adalah SaaS berbayar). Kebutuhan subdomain `{slug}.uncle.id` dipenuhi di Pro lewat pendaftaran host per event (Deployment §3, T18). Pro memberi cron per menit, preview deployment, edge middleware, dan kuota bandwidth/fungsi yang cukup untuk tahap awal. Singapore = region terdekat ke Indonesia. |
+| Database + Storage | **Supabase Pro**, region **Singapore (ap-southeast-1)** | **Satu provider** untuk Postgres dan file storage (foto/video dokumentasi, logo, cover). **Hindari tier gratis:** project gratis di-*pause* otomatis saat tidak aktif — berisiko membuat webhook pembayaran QRIS gagal/lambat diproses. Pro: tanpa auto-pause, backup harian, connection pooler (Supavisor). |
+| DNS | **Cloudflare (tier gratis)** | DNS cepat & reliable, gratis, termasuk record email (SPF/DKIM/DMARC) dan Turnstile. Record ke Vercel diset **DNS-only (awan abu-abu)**, bukan proxy — TLS ditangani Vercel (lihat Deployment §3 untuk implikasi wildcard). |
+| Email | **Resend (tier gratis)** di awal | Evaluasi upgrade berdasarkan volume (lihat Integrations §2). |
+| Rate limit / cache | Upstash Redis (tier gratis) | Tetap seperti §1; volume MVP masih di bawah kuota gratis. |
+
+**Lokasi data & regulasi.** Data pembeli (nama, no HP, email) dan data
+transaksi **boleh disimpan di luar Indonesia (Singapura)**. Data ini bukan
+kategori yang wajib residensi domestik, dan transfer ke luar negeri
+diperbolehkan UU PDP selama ada perlindungan data yang memadai (Singapura
+memiliki PDPA; Supabase/Vercel menyediakan enkripsi in-transit & at-rest serta
+DPA). Konsekuensi praktis yang tetap dijalankan: kebijakan privasi di landing
+page menyebut bahwa data diproses di Singapura, PII tidak dikirim ke layanan
+lain di luar daftar di atas (Security §7), dan retensi data mengikuti PRD Q18.
+*Catatan: ini ringkasan keputusan produk, bukan nasihat hukum.*
 
 ### 3. Alternatif yang Dipertimbangkan
+
+> Dicatat sebagai referensi; **tidak dipilih** setelah keputusan D5.
 
 | Alternatif | Kapan lebih cocok | Trade-off |
 |---|---|---|
@@ -253,7 +292,7 @@ habis padahal tersedia.
 
 ### 1. Konvensi
 
-- PostgreSQL 16, semua PK `uuid` (v7 untuk urutan waktu, atau `gen_random_uuid()`).
+- PostgreSQL (Supabase Pro), semua PK `uuid` (v7 untuk urutan waktu, atau `gen_random_uuid()`).
 - Waktu `timestamptz` (UTC di DB; tampilan `Asia/Jakarta`).
 - Uang `bigint` dalam **Rupiah utuh** (tanpa desimal).
 - Enum memakai PostgreSQL `enum` type (atau `text` + `CHECK`).
@@ -361,7 +400,7 @@ bukan batas tenant)
 | `sales_open` | boolean default true | Tutup penjualan tanpa unpublish (OWN-14). |
 | `name`, `description_html` | text | HTML disanitasi server-side. |
 | `category`, `event_type` | text | Mis. "Teater", "Di lokasi". |
-| `starts_at`, `ends_at` | timestamptz | `ends_at` NULL → dianggap `starts_at + 4 jam` (*Rekomendasi*). |
+| `starts_at`, `ends_at` | timestamptz NOT NULL | Dari form Info Umum: Tanggal + Jam Mulai + **Jam Selesai (wajib)**. Default `ends_at = starts_at + 3 jam` diisi di form (UI), bukan di DB. CHECK `ends_at > starts_at`. `ends_at` = basis default batas reservasi Cash (D6) & penanda `FINISHED`. |
 | `timezone` | text default `Asia/Jakarta` | |
 | `venue_name`, `venue_address`, `maps_url` | text | |
 | `venue_lat`, `venue_lng` | numeric(9,6) NULL | |
@@ -371,9 +410,8 @@ bukan batas tenant)
 | `max_tickets_per_order` | smallint default 10 | PRD BR-TRX-05. |
 | `qris_expiry_minutes` | smallint default 15 | PRD BR-PAY-07. |
 | `cash_enabled` | boolean default true | |
-| `cash_reservation_mode` | enum `UNTIL_EVENT_START`, `FIXED_HOURS` | Lihat §5 (batas reservasi Cash). |
-| `cash_reservation_hours` | smallint NULL | Dipakai jika mode `FIXED_HOURS`. |
-| `cash_grace_minutes` | smallint default 60 | Dipakai jika mode `UNTIL_EVENT_START`. |
+| `cash_reservation_mode` | enum `UNTIL_EVENT_END` (**default**), `UNTIL_EVENT_START`, `AFTER_START_MINUTES` | Lihat §5.2 (batas reservasi Cash, keputusan D6). |
+| `cash_reservation_offset_minutes` | smallint NULL | Wajib jika mode `AFTER_START_MINUTES` (menit setelah `starts_at`); CHECK > 0. |
 | `published_at` | timestamptz NULL | |
 | `created_by` | uuid FK → users | |
 | `version` | int | Optimistic locking form edit. |
@@ -427,6 +465,7 @@ di bawah `allocated_count` otomatis ditolak oleh CHECK yang sama (PRD AC-OWN-07.
 | `cancelled_at`, `cancelled_by`, `cancel_reason` | | |
 | `refund_marked_at`, `refund_marked_by`, `refund_note` | | Penandaan refund saja (keputusan D4). |
 | `needs_review` | boolean default false | Mis. pembayaran masuk setelah kedaluwarsa & kuota habis (PRD BR-PAY-08), nominal tidak cocok. |
+| `reissued_from_order_id` | uuid NULL | Diisi bila order ini dibuat admin dari reservasi Cash kedaluwarsa (keputusan D7). FK (`event_id`, `reissued_from_order_id`) → orders(`event_id`, `id`). **Partial UNIQUE (`event_id`, `reissued_from_order_id`) WHERE NOT NULL** → satu reservasi kedaluwarsa maksimal dibuatkan satu order baru. |
 | `access_token_hash` | bytea | Token akses halaman status pesanan untuk customer (lihat Auth). |
 | `idempotency_key` | text | UNIQUE (`event_id`, `idempotency_key`) — cegah order ganda karena klik/jaringan. |
 | `created_ip` | inet | Untuk rate limit & investigasi abuse. |
@@ -480,7 +519,7 @@ diperluas menjadi 1 ticket per unit tiket tanpa mengubah tabel order.
 | `event_id` | uuid UNIQUE FK | Satu konfigurasi per event/tenant (keputusan D3). |
 | `provider` | enum `TRIPAY` | Bisa ditambah. |
 | `mode` | enum `SANDBOX`, `PRODUCTION` | |
-| `merchant_code` | text | Dibutuhkan Tripay untuk signature create transaction (lihat Pertanyaan Terbuka T1). |
+| `merchant_code` | text NOT NULL | **Wajib** — kredensial ke-3 Tripay (dipakai di signature create transaction). Diinput di Payment Settings bersama API Key & Private Key (UI-UX v1.1); ditampilkan termasking (4 karakter terakhir). |
 | `api_key_enc`, `private_key_enc` | bytea | **Terenkripsi** AES-256-GCM (envelope encryption, lihat Security). |
 | `enc_key_id` | text | Versi/ID kunci enkripsi untuk rotasi. |
 | `api_key_last4` | char(4) | Hanya untuk tampilan termasking. |
@@ -536,9 +575,9 @@ UNIQUE (`order_id`, `type`) WHERE `type IN ('TICKET_ISSUED','CASH_RESERVATION')`
 — mencegah email tiket ganda dari webhook duplikat.
 
 **`audit_logs`**: `id`, `event_id` NULL, `actor_user_id` NULL (NULL = sistem/
-webhook), `action` (mis. `ORDER_CASH_CONFIRMED`, `TICKET_CHECKED_IN`,
-`ORDER_CANCELLED`, `PAYMENT_CONFIG_UPDATED`, `EVENT_PUBLISHED`,
-`OWNER_VIEWED_TENANT`), `entity_type`, `entity_id`, `before` jsonb, `after`
+webhook), `action` (mis. `ORDER_CASH_CONFIRMED`, `ORDER_REISSUED`,
+`TICKET_CHECKED_IN`, `ORDER_CANCELLED`, `PAYMENT_CONFIG_UPDATED`,
+`EVENT_PUBLISHED`, `OWNER_VIEWED_TENANT`), `entity_type`, `entity_id`, `before` jsonb, `after`
 jsonb, `ip`, `user_agent`, `created_at`. **Append-only** (tidak ada UPDATE/DELETE
 untuk role aplikasi).
 
@@ -560,8 +599,11 @@ QRIS:
 CASH:
   [buat order] → RESERVED ──admin "Konfirmasi Lunas"──► PAID ──admin──► CANCELLED / REFUNDED
                     │
-                    ├─expires_at lewat──────────────► EXPIRED
-                    └─admin batalkan────────────────► CANCELLED
+                    ├─expires_at lewat──────────────► EXPIRED ──admin "Buat Pesanan Baru"──┐
+                    └─admin batalkan────────────────► CANCELLED                            │
+                                                                                           ▼
+  [order BARU, reissued_from_order_id = order lama] ─────────────────────────────────► PAID (langsung)
+  (order lama tetap EXPIRED, ticket lama tetap VOID)
 ```
 
 | Transisi | Efek kuota (`allocated_count`) | Efek `tickets` | Email |
@@ -574,6 +616,7 @@ CASH:
 | `RESERVED`/`PAID` → `CANCELLED` | **−qty** | `VOID` | `ORDER_CANCELLED` |
 | `PAID` → `REFUNDED` | **−qty** | `VOID` | `ORDER_CANCELLED` |
 | `EXPIRED` → `PAID` (webhook terlambat) | **+qty** jika muat; jika tidak, transisi ditolak & `needs_review = true` | Buat `ISSUED` | `TICKET_ISSUED` |
+| *(baru, reissue)* → `PAID` (order Cash baru dari reservasi `EXPIRED`) | **+qty** jika muat semua jenis; jika tidak, ditolak `409 QUOTA_INSUFFICIENT` (tidak ada order dibuat) | Buat `ISSUED` baru (ticket lama tetap `VOID`) | `TICKET_ISSUED` (QR baru) |
 
 `CHECKED_IN` tidak bisa di-`VOID` melalui pembatalan biasa; pembatalan order
 yang tiketnya sudah diambil hanya boleh oleh Owner (PRD Q10).
@@ -615,20 +658,61 @@ RETURNING quota - allocated_count AS remaining;
 
 Lapis pengaman terakhir: `CHECK (allocated_count BETWEEN 0 AND quota)`.
 
-#### 5.2 Batas reservasi Cash (keputusan D2)
+#### 5.2 Batas reservasi Cash (keputusan D2 + D6)
 
-`orders.expires_at` untuk Cash dihitung saat order dibuat dari konfigurasi event:
+`orders.expires_at` untuk Cash dihitung saat order dibuat dari konfigurasi event.
+Sesuai overview terbaru, **default = jam selesai event** (bukan H-1 — supaya
+kuota tidak lepas sebelum pembeli sempat datang & bayar di venue). Owner hanya
+bisa **mempercepat** batas ini per event:
 
 | Mode | `expires_at` | Cocok untuk |
 |---|---|---|
-| `UNTIL_EVENT_START` *(Rekomendasi default)* | `events.starts_at + cash_grace_minutes` (default 60 menit) | Overview: Cash dibayar **di venue saat hari-H**. Reservasi berlaku sampai acara dimulai; customer yang tidak datang otomatis kedaluwarsa. |
-| `FIXED_HOURS` | `min(created_at + cash_reservation_hours, starts_at + cash_grace_minutes)` | Client punya titik bayar sebelum hari-H (mis. sekretariat) dan ingin kuota cepat kembali bila tidak dibayar. |
+| `UNTIL_EVENT_END` *(default, D6)* | `events.ends_at` | Cash dibayar di venue saat hari-H; reservasi berlaku sampai acara selesai. |
+| `UNTIL_EVENT_START` | `events.starts_at` | Owner ingin kuota yang tidak diambil segera tersedia lagi begitu acara mulai (mis. dijual on-the-spot). |
+| `AFTER_START_MINUTES` | `min(starts_at + cash_reservation_offset_minutes, ends_at)` | Memberi toleransi keterlambatan tertentu setelah acara mulai. |
 
-Karena mode default menahan kuota sampai hari-H, perlindungan dari reservasi
-fiktif dilakukan dengan: maks reservasi Cash aktif per no HP per event
+Bila `expires_at` hasil hitungan sudah lewat saat checkout (mis. checkout Cash
+setelah jam mulai pada mode `UNTIL_EVENT_START`), opsi Cash tidak ditawarkan /
+order ditolak `409 SALES_CLOSED` untuk Cash. Perubahan mode oleh Owner berlaku
+untuk order baru; perlakuan order `RESERVED` yang sudah ada → T21.
+
+Karena mode default menahan kuota sampai acara selesai, perlindungan dari
+reservasi fiktif dilakukan dengan: maks reservasi Cash aktif per no HP per event
 (*Rekomendasi:* 2), CAPTCHA (Turnstile) pada checkout Cash, rate limit per IP,
 dan opsi Owner menonaktifkan Cash (`cash_enabled`). Nilai final → Pertanyaan
 Terbuka.
+
+#### 5.2a Buat pesanan baru dari reservasi kedaluwarsa (keputusan D7)
+
+Dipicu admin dari hasil scan `RESERVATION_EXPIRED` (API §5 `…/reissue`).
+Memakai ulang logika alokasi kuota create order (§5.1), tetapi order langsung
+`PAID`:
+
+```
+BEGIN
+ 1. SELECT order lama WHERE event_id=$e AND id=$old FOR UPDATE
+      - harus payment_method='CASH'
+      - status RESERVED tapi expires_at < now() → expire dulu di transaksi ini
+        (→ EXPIRED, −qty, ticket VOID) — sama dengan sweep-on-write
+      - status selain EXPIRED → 409 ORDER_NOT_EXPIRED
+ 2. Sudah ada order dengan reissued_from_order_id = $old → 409 ALREADY_REISSUED (+ kode order baru)
+ 3. Lock ticket_types item order lama (FOR UPDATE, urut id) + sweep-on-write
+ 4. Alokasi kuota SEMUA item (qty sama dengan order lama); satu saja gagal / jenis
+    nonaktif → ROLLBACK, 409 QUOTA_INSUFFICIENT (sisa per jenis)
+ 5. Hitung total dari HARGA SAAT INI (BR-EVT-07); ≠ expectedTotal dari klien → 409 PRICE_CHANGED
+ 6. INSERT order baru: CASH, status PAID, paid_at=now(), paid_via=CASH_MANUAL,
+      cash_confirmed_by=admin, expires_at=NULL, reissued_from_order_id=$old,
+      data customer disalin, order_code & access_token baru
+ 7. INSERT order_items (snapshot harga saat ini), INSERT tickets ISSUED (QR baru)
+ 8. email_outbox TICKET_ISSUED, audit_logs ORDER_REISSUED (old → new)
+COMMIT
+```
+
+Partial UNIQUE `reissued_from_order_id` menjamin dua admin yang menekan tombol
+bersamaan hanya menghasilkan satu order baru (yang kalah → `409 ALREADY_REISSUED`).
+Validasi publik (Turnstile, batas reservasi per no HP, `sales_open`) **tidak**
+berlaku karena aksi dilakukan admin di venue; event harus `ACTIVE` atau
+`FINISHED` pada hari yang sama (Scanner masih boleh dipakai, PRD BR-EVT-08).
 
 #### 5.3 Ringkasan constraint
 
@@ -647,6 +731,7 @@ Terbuka.
 | Email tiket tidak dobel | partial UNIQUE `email_outbox(order_id, type)` |
 | Satu konfigurasi QRIS per tenant | `payment_configs.event_id UNIQUE` |
 | Slug terkunci setelah ada transaksi (PRD BR-EVT-06) | Trigger `BEFORE UPDATE OF slug ON events` menolak jika ada order |
+| Reservasi kedaluwarsa dibuatkan order baru maksimal sekali | partial UNIQUE `orders(event_id, reissued_from_order_id) WHERE reissued_from_order_id IS NOT NULL` |
 
 ---
 
@@ -748,7 +833,7 @@ Host: `app.uncle.id`.
 | GET | `/api/owner/events/{eventId}` | Detail event lengkap untuk form edit. |
 | PATCH | `/api/owner/events/{eventId}` | Update info umum, branding, konten pendukung, pengaturan Cash/QRIS. Wajib `If-Match: {version}`. |
 | GET | `/api/owner/events/{eventId}/publish-checklist` | Status kelengkapan publish. |
-| POST | `/api/owner/events/{eventId}/publish` | DRAFT → ACTIVE (validasi checklist). |
+| POST | `/api/owner/events/{eventId}/publish` | DRAFT → ACTIVE (validasi checklist) + daftarkan host `{slug}.uncle.id` ke Vercel (Deployment §3). |
 | POST | `/api/owner/events/{eventId}/unpublish` | ACTIVE → DRAFT (hanya bila belum ada order). |
 | POST | `/api/owner/events/{eventId}/sales/close` · `/sales/open` | Tutup/buka penjualan. |
 | GET | `/api/owner/slugs/{slug}/availability` | Cek slug (format, cadangan, terpakai). |
@@ -778,6 +863,7 @@ Host: `app.uncle.id`.
 | GET | `/api/admin/events/{eventId}/orders` | Daftar transaksi. Filter: `status`, `pickup=pending\|done`, `method`, `q` (nama/HP/kode), `includeUnfinished` (default false: sembunyikan PENDING_PAYMENT/EXPIRED). |
 | GET | `/api/admin/events/{eventId}/orders/{orderId}` | Detail + item + riwayat (audit). |
 | POST | `/api/admin/events/{eventId}/orders/{orderId}/confirm-cash` | `RESERVED` → `PAID` (body: `{ "cashReceived": true }`). 409 bila status bukan RESERVED atau sudah kedaluwarsa. |
+| POST | `/api/admin/events/{eventId}/orders/{orderId}/reissue` | **Baru (D7).** Buat order baru berstatus `PAID` dari reservasi Cash `{orderId}` yang kedaluwarsa, dengan data customer & item yang sama. Reuse logika alokasi kuota create order (§Database 5.2a). Body: `{ "cashReceived": true, "expectedTotal": 150000 }`; header `Idempotency-Key`. |
 | POST | `/api/admin/events/{eventId}/orders/{orderId}/cancel` | Batalkan (`{reason}`), lepas kuota, VOID tiket. |
 | POST | `/api/admin/events/{eventId}/orders/{orderId}/mark-refunded` | Tandai refund (pencatatan saja, keputusan D4). |
 | POST | `/api/admin/events/{eventId}/orders/{orderId}/resend-ticket-email` | Kirim ulang email QR Tiket (rate limited). |
@@ -806,6 +892,56 @@ Nilai `result`: `READY_PICKUP`, `CASH_UNPAID`, `ALREADY_CHECKED_IN` (+
 `checkedInAt`, `checkedInBy`), `RESERVATION_EXPIRED`, `CANCELLED`,
 `OTHER_EVENT` (tanpa data order), `INVALID` (tanpa data). Semua hasil scan
 dicatat di `audit_logs`.
+
+Order Cash `RESERVED` yang `expires_at`-nya sudah lewat tapi belum disapu cron
+diperlakukan sebagai kedaluwarsa (handler scan menjalankan expiry untuk order
+itu lebih dulu). Untuk `RESERVATION_EXPIRED`, respons menyertakan blok
+`reissue` (snapshot kuota **saat ini**; final dicek lagi di `…/reissue`):
+
+```json
+// 200 — kuota masih ada (UI-UX Scan (k1))
+{ "result": "RESERVATION_EXPIRED",
+  "ticket": { "id": "…", "status": "VOID" },
+  "order":  { "id": "…", "code": "UNC-2M8R4T", "customerName": "Siti R.",
+              "paymentMethod": "CASH", "status": "EXPIRED",
+              "expiredAt": "2026-12-20T19:00:00+07:00",
+              "items": [ { "name": "VIP", "quantity": 1 } ] },
+  "reissue": { "available": true, "totalAmount": 150000,
+               "items": [ { "ticketTypeId": "…vip", "name": "VIP", "quantity": 1,
+                            "unitPrice": 150000, "remaining": 4 } ],
+               "reissuedOrder": null },
+  "actions": { "canConfirmCash": false, "canCheckIn": false, "canReissue": true } }
+```
+
+- Kuota tidak cukup untuk salah satu jenis → `reissue.available = false`,
+  `items[].remaining` menunjukkan jenis yang kurang, `canReissue = false`
+  (UI-UX (k2)).
+- Sudah pernah dibuatkan → `reissue.reissuedOrder = { "id", "code",
+  "createdAt", "createdBy", "ticketStatus" }`, `canReissue = false` (UI-UX (k3)).
+
+**Contoh — `POST /api/admin/events/{eventId}/orders/{orderId}/reissue`**
+
+```json
+// Request
+{ "cashReceived": true, "expectedTotal": 150000 }
+
+// 201
+{ "order":  { "id": "…", "code": "UNC-9H2W5X", "status": "PAID",
+              "paymentMethod": "CASH", "paidVia": "CASH_MANUAL",
+              "reissuedFromOrderCode": "UNC-2M8R4T", "totalAmount": 150000,
+              "items": [ { "name": "VIP", "quantity": 1, "unitPrice": 150000 } ] },
+  "ticket": { "id": "…", "status": "ISSUED" },
+  "actions": { "canCheckIn": true } }
+```
+
+Error: `400 VALIDATION_ERROR` (`cashReceived` bukan `true`), `404` (order
+tidak ada / tenant lain), `409 ORDER_NOT_EXPIRED` (bukan Cash, atau belum/tidak
+kedaluwarsa — mis. `RESERVED` aktif, `CANCELLED`, `PAID`), `409 ALREADY_REISSUED`
+(+ `newOrderCode`), `409 QUOTA_INSUFFICIENT` (+ sisa per jenis), `409
+PRICE_CHANGED` (+ total terbaru; UI menampilkan ulang tagihan), `409
+EVENT_NOT_OPERATIONAL` (event bukan `ACTIVE`/`FINISHED` hari yang sama).
+Pengulangan dengan `Idempotency-Key` yang sama mengembalikan respons 201 yang
+sama.
 
 ### 6. Webhook
 
@@ -860,6 +996,7 @@ dicatat di `audit_logs`.
 | Invite/cabut admin | ✔ | ✘ | ✘ | ✘ |
 | Lihat transaksi | ✔ (read-only) | ✔ | ✘ (404) | Hanya order sendiri |
 | Konfirmasi Lunas Cash, Check-in | ✘ *(Rekomendasi: operasional milik client)* | ✔ | ✘ | ✘ |
+| Buat pesanan baru dari reservasi kedaluwarsa (`…/reissue`) | ✘ *(sama dengan Konfirmasi Lunas Cash)* | ✔ | ✘ | ✘ |
 | Batalkan / tandai refund | ✘ *(Rekomendasi: keputusan milik client)* | ✔ | ✘ | ✘ |
 | Batalkan status Diambil | ✔ (dengan alasan) | ✘ | ✘ | ✘ |
 | Atur kredensial QRIS | ✘ (lihat Pertanyaan Terbuka) | ✔ | ✘ | ✘ |
@@ -1007,24 +1144,24 @@ Step 4 memanggil hal yang sama (rate limited).
 
 | Aspek | Ketentuan |
 |---|---|
-| Provider | **Resend** *(Rekomendasi)*; alternatif Amazon SES / Postmark. Diakses via interface `EmailSender` agar bisa diganti. |
+| Provider | **Resend, tier gratis di awal** (final, D5). Diakses via interface `EmailSender` agar bisa diganti (mis. ke SES/Postmark) tanpa mengubah modul lain. |
 | Domain pengirim | `mail.uncle.id` dengan **SPF, DKIM, DMARC** (`p=quarantine` setelah stabil). From: `"{Nama Event} via Uncle" <tiket@mail.uncle.id>`, `Reply-To`: kontak penyelenggara. |
 | Jenis email | `TICKET_ISSUED` (QRIS lunas), `CASH_RESERVATION` (QR Tiket + nominal + batas reservasi), `RESERVATION_EXPIRED`, `ORDER_CANCELLED`, `ADMIN_INVITE`, `PASSWORD_RESET`. |
 | Isi email tiket | Nama event, tanggal/jam, lokasi + link peta, ringkasan item & total, status bayar, kode pesanan, **QR Tiket sebagai gambar PNG inline (CID attachment)** + tautan halaman tiket `…/pesanan/{code}?t=…` sebagai cadangan bila gambar diblokir. Branding: logo & warna client. |
 | Pola kirim | **Transactional outbox**: baris `email_outbox` ditulis di transaksi DB yang sama dengan perubahan status → dikirim oleh worker/cron (dan dipicu segera setelah commit). Retry backoff 1, 5, 15, 60, 240 menit; setelah 5 kali → `FAILED` + tampil di Admin ("Email gagal — kirim ulang"). |
 | Status pengiriman | Webhook provider (delivered/bounced/complained) → update `email_outbox.status`. Halaman Step 5 hanya menampilkan "✅ Sudah dikirim ke email" bila status `SENT`/delivered (UI-UX States). |
 | Validasi | Format email (RFC 5322 sederhana) + cek domain punya MX record *(Rekomendasi)* untuk mengurangi typo; sarankan koreksi domain umum (mis. `gmial.com` → `gmail.com`). |
-| Volume & biaya | Perkiraan 1–2 email per order. Pilih paket sesuai volume (Pertanyaan Terbuka T9). |
+| Volume & biaya | Perkiraan 1–2 email per order. Tier gratis Resend (per data publik terakhir yang diketahui — **cek ulang halaman pricing**) dibatasi ±3.000 email/bulan **dan ±100 email/hari**. Batas harian ini yang paling cepat tersentuh saat satu event ramai membuka penjualan. **Pemicu upgrade** ke paket berbayar (Pro ±US$20/bulan): rata-rata > 60 email/hari dalam seminggu, atau ada event dengan kuota > 100 tiket yang akan buka penjualan. Worker outbox wajib menangani respons `429`/limit dari Resend sebagai retry (bukan `FAILED`) dan memicu alert ke tim (T9). |
 
 ### 3. Penyimpanan File (dokumentasi, logo, cover)
 
 | Aspek | Ketentuan |
 |---|---|
-| Storage | **Cloudflare R2** bucket `uncle-media-{env}`, akses publik via `cdn.uncle.id` (read-only). *Rekomendasi.* |
-| Upload | Presigned PUT URL dari `POST /api/owner/uploads` (berlaku 10 menit), browser upload langsung ke R2, lalu `…/complete`. |
+| Storage | **Supabase Storage** (final, D5), bucket publik `event-media` (read-only publik, disajikan via CDN Supabase) di project Supabase per environment. Tulis/hapus hanya dari server dengan service role key (tidak pernah dikirim ke browser). Custom domain `cdn.uncle.id` = add-on berbayar Supabase, tidak diperlukan di MVP. |
+| Upload | Signed upload URL (`createSignedUploadUrl`) dari `POST /api/owner/uploads` (berlaku singkat), browser upload langsung ke Supabase Storage, lalu `…/complete`. |
 | Validasi | Whitelist MIME + **cek magic bytes** server-side: gambar JPG/PNG/WebP (maks 10 MB), logo PNG/SVG (maks 2 MB, SVG disanitasi), video MP4 (maks 100 MB *(Rekomendasi)*). Batas final → PRD Q17. |
 | Pemrosesan gambar | Resize ke beberapa lebar (480/960/1600) + WebP/AVIF, strip EXIF (privasi lokasi), via Next.js Image Optimization atau proses saat `complete` (sharp). |
-| Video | *Rekomendasi:* dukung **embed URL (YouTube/Vimeo)** sebagai opsi utama untuk menghemat bandwidth & biaya; upload MP4 langsung tetap tersedia dengan batas ukuran. |
+| Video | *Rekomendasi:* dukung **embed URL (YouTube/Vimeo)** sebagai opsi utama — egress Supabase Storage di atas kuota paket Pro dikenai biaya per GB, dan video adalah penyumbang terbesar; upload MP4 langsung tetap tersedia dengan batas ukuran. |
 | Key | `events/{eventId}/{assetId}/{variant}.{ext}` — nama file asli tidak dipakai di URL. |
 | Penghapusan | Soft delete di DB; file dihapus oleh job harian setelah 30 hari. |
 
@@ -1083,6 +1220,11 @@ Step 4 memanggil hal yang sama (rate limited).
   aplikasi bukan owner tabel (`FORCE ROW LEVEL SECURITY`). Owner & job sistem
   memakai role DB terpisah dengan `BYPASSRLS` yang hanya dipakai di modul
   tertentu.
+- **Khusus Supabase (D5):** aplikasi mengakses DB lewat connection string
+  server-side saja. **Data API (PostgREST) dimatikan** atau schema aplikasi
+  tidak diekspos, dan role `anon`/`authenticated` tidak diberi grant apa pun
+  pada tabel aplikasi — supaya anon key Supabase (bila ada) tidak bisa membaca
+  data tenant. Service role key & connection string hanya ada di env Vercel.
 - Respons 404 (bukan 403) untuk resource tenant lain.
 - Hasil scan QR milik event lain **tidak** mengembalikan data order.
 - Cache (Redis/CDN) selalu memakai key berprefiks `event:{id}`.
@@ -1101,6 +1243,7 @@ Step 4 memanggil hal yang sama (rate limited).
 | `POST /api/auth/login` | 5/15 menit | email + IP |
 | `POST /api/auth/password/forgot` | 3/jam | email + IP |
 | `POST …/scan` (admin) | 120/menit | user |
+| `POST …/orders/{id}/reissue` (admin) | 30/menit | user |
 | Webhook | Tidak dibatasi ketat (hanya proteksi DDoS di edge) | — |
 
 Implementasi: sliding window di Redis (Upstash Ratelimit). Respons `429` +
@@ -1143,7 +1286,7 @@ Turnstile pada checkout & Cek Pesanan.
 
 - HTTPS di semua host + **HSTS** (`includeSubDomains; preload` setelah stabil).
 - Header: `Content-Security-Policy` (tanpa `unsafe-inline` untuk script; izinkan
-  `cdn.uncle.id`, Google Maps, Turnstile), `X-Content-Type-Options: nosniff`,
+  domain Supabase Storage, Google Maps, Turnstile), `X-Content-Type-Options: nosniff`,
   `Referrer-Policy: strict-origin-when-cross-origin`,
   `Permissions-Policy: camera=(self)` hanya di halaman scan, `frame-ancestors 'none'`
   untuk dashboard.
@@ -1158,7 +1301,8 @@ Turnstile pada checkout & Cek Pesanan.
   batal, refund, ubah kredensial, publish, akses Owner ke tenant).
 - **Dependency & kode:** Dependabot/Renovate, `npm audit` di CI, secret scanning
   GitHub, review wajib untuk perubahan modul payments/auth.
-- **Backup:** PITR database ≥ 7 hari, uji restore berkala (lihat Deployment).
+- **Backup:** backup harian Supabase Pro (retensi 7 hari); PITR sebagai add-on
+  (T19); uji restore berkala (lihat Deployment).
 - **Least privilege DB:** role aplikasi tanpa hak DDL; migrasi memakai role
   terpisah di pipeline.
 
@@ -1170,10 +1314,10 @@ Turnstile pada checkout & Cek Pesanan.
 
 | Env | Domain | Infrastruktur | Data | Payment | Email |
 |---|---|---|---|---|---|
-| **dev** (lokal) | `*.uncle.localhost:3000` (mis. `teaterbagol.uncle.localhost`) + `app.uncle.localhost` | Docker Compose: Postgres 16, Redis, MinIO (S3), Mailpit | Seed data (Teater Bagol, Konser X) | Tripay sandbox + tunnel webhook (Cloudflare Tunnel/ngrok) | Mailpit (tidak terkirim keluar) |
-| **staging** | `app.staging.uncle.id`, `*.staging.uncle.id` | Sama dengan production (project/hosting terpisah), DB branch/instance terpisah | Data dummy; **tidak boleh** data customer asli | Tripay sandbox | Provider email, hanya ke allowlist domain tim |
-| **production** | `app.uncle.id`, `*.uncle.id` | Hosting production, DB Singapore dengan PITR | Data asli | Tripay production (akun tiap client) | Provider email, domain `mail.uncle.id` |
-| **preview** (per PR) | URL preview hosting | Branch DB (Neon) dari staging | Dummy | Sandbox | Dinonaktifkan / Mailpit |
+| **dev** (lokal) | `*.uncle.localhost:3000` (mis. `teaterbagol.uncle.localhost`) + `app.uncle.localhost` | Supabase CLI lokal (Postgres + Storage) + Redis + Mailpit via Docker | Seed data (Teater Bagol, Konser X) | Tripay sandbox + tunnel webhook (Cloudflare Tunnel/ngrok) | Mailpit (tidak terkirim keluar) |
+| **staging** | `app.staging.uncle.id`, `*.staging.uncle.id` | Vercel (environment/project staging) + **project Supabase terpisah**. *Rekomendasi:* project staging di organisasi Supabase tier gratis (auto-pause dapat diterima untuk non-produksi) | Data dummy; **tidak boleh** data customer asli | Tripay sandbox | Resend, hanya ke allowlist domain tim |
+| **production** | `app.uncle.id`, `*.uncle.id` | **Vercel Pro** (`sin1`) + **Supabase Pro** (Singapore) + Cloudflare DNS | Data asli | Tripay production (akun tiap client) | Resend, domain `mail.uncle.id` |
+| **preview** (per PR) | URL preview Vercel | Memakai DB & Storage staging (bukan production) | Dummy | Sandbox | Dinonaktifkan / Mailpit |
 
 Konfigurasi per env via environment variables (`APP_BASE_DOMAIN`, `DATABASE_URL`,
 `PAYMENT_KEK_*`, `QR_SIGNING_KEY`, `CRON_SECRET`, `EMAIL_API_KEY`, dll.); kunci
@@ -1184,7 +1328,7 @@ berbeda di tiap env.
 ```
 Pull Request → GitHub Actions:
   lint → typecheck → unit test → integration test (Postgres container)
-  → cross-tenant test suite → build → preview deploy (+ DB branch, migrasi)
+  → cross-tenant test suite → build → preview deploy (DB staging)
   → Playwright E2E (checkout QRIS sandbox mock, Cash, scan)
 Merge ke main → deploy staging (migrasi otomatis) → smoke test
 Tag release / approve manual → migrasi production (role migrator) → deploy production
@@ -1199,11 +1343,12 @@ Tag release / approve manual → migrasi production (role migrator) → deploy p
 
 | Langkah | Detail |
 |---|---|
-| DNS | Record `*.uncle.id` dan `app.uncle.id` → hosting (CNAME/A sesuai penyedia). Record terpisah untuk `mail.uncle.id` (SPF/DKIM/DMARC), `cdn.uncle.id` (R2). |
-| SSL wildcard | Sertifikat wildcard `*.uncle.id` memerlukan **validasi DNS-01**. Di **Vercel**, wildcard domain + sertifikat otomatis memerlukan domain memakai **nameserver Vercel** *(cek ketentuan terbaru)*. Alternatif: Cloudflare sebagai DNS/proxy (Universal SSL mencakup `*.uncle.id` satu level) atau Caddy/Traefik dengan DNS-01 bila self-hosted. |
-| Staging | `*.staging.uncle.id` butuh sertifikat wildcard **terpisah** (wildcard hanya mencakup satu level). |
-| Event baru | **Tidak perlu** menambah DNS/sertifikat per event — slug baru langsung aktif karena wildcard + routing di middleware (sesuai overview: "Publish → langsung live"). |
-| Domain kustom client (masa depan, PRD Q17) | Butuh verifikasi domain & sertifikat per domain (on-demand TLS / API domain hosting). Di luar MVP. |
+| DNS (Cloudflare Free, D5) | Zona `uncle.id` di Cloudflare. Record `app.uncle.id`, apex/`www`, dan **wildcard `*.uncle.id` → CNAME ke Vercel**, semuanya **DNS-only (awan abu-abu)**. Record email `mail.uncle.id` (SPF/DKIM/DMARC Resend) juga di Cloudflare. |
+| Batasan yang perlu diketahui | Sertifikat **wildcard** `*.uncle.id` otomatis dari Vercel hanya tersedia bila domain memakai **nameserver Vercel** (validasi DNS-01) *(cek ketentuan Vercel terbaru)*. Karena DNS tetap di Cloudflare (D5), Vercel tidak bisa menerbitkan sertifikat wildcard. Proxy Cloudflare (awan oranye) di depan Vercel juga tidak direkomendasikan Vercel (CDN ganda, mengganggu penerbitan sertifikat). |
+| SSL per subdomain *(Rekomendasi, T18)* | Saat Owner **publish** event, server mendaftarkan host `{slug}.uncle.id` ke project Vercel lewat **Vercel Domains API**; karena DNS wildcard sudah mengarah ke Vercel, Vercel memverifikasi & menerbitkan sertifikat per host secara otomatis (HTTP-01), biasanya dalam hitungan detik–menit. Unpublish → domain tetap (agar link lama menampilkan "Event tidak ditemukan"); ganti slug (sebelum ada transaksi) → hapus host lama, tambah host baru. Token Vercel API disimpan sebagai secret. Checklist publish menunggu status domain `verified` sebelum menampilkan "Landing live". |
+| Staging | Host `{slug}.staging.uncle.id` didaftarkan dengan cara yang sama ke project/env staging; wildcard DNS `*.staging.uncle.id` di Cloudflare. |
+| Event baru | **Tidak perlu** menambah record DNS per event (wildcard DNS). Yang bertambah hanya pendaftaran host ke Vercel saat publish (otomatis) — overview "Publish → langsung live" tetap terpenuhi dengan jeda penerbitan sertifikat singkat. |
+| Domain kustom client (masa depan, PRD Q17) | Mekanisme yang sama (Vercel Domains API) + verifikasi kepemilikan domain oleh client. Di luar MVP. |
 | Apex | `uncle.id` & `www` → halaman marketing; redirect `www` → apex. |
 
 ### 4. Skalabilitas Tahap Awal
@@ -1218,7 +1363,7 @@ penjualan, ~2–5 scan/detik per event saat hari-H.
 | Landing page | Di-cache di CDN (ISR, revalidate saat event disimpan); hanya kuota & checkout yang dinamis → mayoritas trafik tidak menyentuh DB. |
 | Database | Managed Postgres + **connection pooling** (PgBouncer/pooler bawaan) — wajib untuk serverless. Index sesuai §Database. Kontensi baris `ticket_types` saat war ticket masih aman untuk skala ini (transaksi singkat < 50 ms); bila jadi bottleneck → antrean checkout atau pecah kuota per bucket (pasca-MVP). |
 | Pekerjaan berat | Email & rekonsiliasi lewat outbox + cron, tidak di jalur request. |
-| Media | Disajikan dari CDN R2, gambar dioptimasi & lazy-load. |
+| Media | Disajikan dari CDN Supabase Storage, gambar dioptimasi & lazy-load. |
 | Polling status QRIS | Endpoint ringan (satu query by `order_code`), interval 3 detik, berhenti saat tab tidak aktif / setelah kedaluwarsa. |
 | Scanner | Decode QR di perangkat; satu request kecil per scan. |
 | Observability | Dashboard metrik: checkout sukses/gagal, latensi webhook (diterima → PAID), email gagal, 429 rate limit, error rate per tenant. Alert ke tim. |
@@ -1228,11 +1373,36 @@ penjualan, ~2–5 scan/detik per event saat hari-H.
 
 | Aspek | Ketentuan *(Rekomendasi)* |
 |---|---|
-| Backup DB | PITR ≥ 7 hari + snapshot harian disimpan 30 hari. Uji restore ke staging tiap bulan. |
-| RPO / RTO | RPO ≤ 5 menit, RTO ≤ 2 jam. |
-| Storage | Versioning bucket R2 / replikasi harian. |
+| Backup DB | **Backup harian Supabase Pro (retensi 7 hari, termasuk paket).** PITR = add-on berbayar terpisah → T19. Uji restore ke project staging tiap bulan. |
+| RPO / RTO | Tanpa PITR: RPO ≤ 24 jam (status pembayaran QRIS masih bisa direkonsiliasi dari data gateway; data Cash manual bisa hilang sejak backup terakhir). Dengan PITR: RPO ≤ 5 menit. RTO ≤ 2 jam. |
+| Storage | Backup harian Supabase **tidak mencakup file Storage**. MVP: file asli dokumentasi juga dipegang Owner (materi dari client) sehingga bisa diunggah ulang; replikasi otomatis ke penyimpanan kedua → pasca-MVP. |
 | Runbook | Webhook gagal massal, gateway down (matikan QRIS sementara per event, Cash tetap jalan), email provider down (outbox menahan & retry), rotasi kunci, insiden kebocoran data. |
 | Hari-H | Checklist sebelum event besar: QRIS tenant `CONNECTED`, tes scan di HP panitia, banner offline teruji, kontak on-call tim Uncle. |
+
+### 6. Estimasi Biaya Bulanan (production, tahap awal)
+
+> Harga mengikuti daftar harga publik terakhir yang diketahui dan **wajib dicek
+> ulang** di halaman pricing tiap layanan sebelum berlangganan. Belum termasuk
+> PPN atas layanan digital luar negeri. Kurs asumsi Rp 16.500/US$.
+
+| Layanan | Paket | Perkiraan / bulan | Catatan |
+|---|---|---|---|
+| Vercel | Pro, 1 seat developer | US$20 | Termasuk kredit pemakaian bulanan; seat tambahan ±US$20/orang. Kelebihan bandwidth/fungsi ditagih per pemakaian. |
+| Supabase | Pro (1 project production, compute terkecil) | US$25 | Termasuk kredit compute untuk 1 instance terkecil, kuota DB, Storage & egress paket Pro; kelebihan egress/storage ditagih per GB. Staging di org gratis: US$0. |
+| Cloudflare | Free (DNS, Turnstile) | US$0 | |
+| Resend | Free | US$0 | Upgrade ke Pro ±US$20 saat volume naik (Integrations §2). |
+| Upstash Redis | Free | US$0 | Cukup untuk rate limit volume MVP. |
+| Sentry + uptime monitor | Free tier | US$0 | |
+| Domain `uncle.id` | Tahunan | ± Rp 20–25 rb | ± Rp 250 rb/tahun (tergantung registrar). |
+| **Total awal** | | **± US$45 + domain ≈ Rp 770 rb/bulan** | |
+
+Skenario kenaikan yang paling mungkin:
+
+| Pemicu | Tambahan | Total perkiraan |
+|---|---|---|
+| Volume email melewati tier gratis → Resend Pro | +US$20 | ± US$65 ≈ Rp 1,1 jt/bulan |
+| Butuh RPO ≤ 5 menit → Supabase PITR add-on (7 hari) + compute minimal yang disyaratkan | ± +US$100–110 | ± US$155–175 ≈ Rp 2,6–2,9 jt/bulan |
+| Developer kedua di Vercel | +US$20 per seat | — |
 
 ---
 
@@ -1245,9 +1415,9 @@ penjualan, ~2–5 scan/detik per event saat hari-H.
 
 | # | Pertanyaan | Status setelah DRD |
 |---|---|---|
-| PRD Q1 | Email customer opsional atau wajib? | ✅ **Terjawab:** wajib (D1). `PRD.md` BR-TRX-03/LP-07 & `UI-UX.md` Step 2 perlu diperbarui. |
+| PRD Q1 | Email customer opsional atau wajib? | ✅ **Terjawab:** wajib (D1), bukan untuk login. `PRD.md` BR-TRX-03/LP-07 & `UI-UX.md` Step 2 **sudah diperbarui (v1.1)**. |
 | PRD Q2 | Kebijakan refund default & status Dibatalkan/Refund? | 🟡 **Sebagian:** Uncle hanya menandai `CANCELLED`/`REFUNDED` (D4). Masih terbuka: teks kebijakan default & siapa yang menulis per event. |
-| PRD Q3 | Kuota Cash rawan pesanan fiktif — batasan? | 🟡 **Sebagian:** Cash = `RESERVED` berbatas waktu (D2). Masih terbuka: lihat T5 (durasi) & batas reservasi per no HP. |
+| PRD Q3 | Kuota Cash rawan pesanan fiktif — batasan? | 🟡 **Sebagian:** Cash = `RESERVED` berbatas waktu (D2), default jam selesai event & bisa dipercepat Owner (D6). Masih terbuka: batas reservasi aktif per no HP (T5). |
 | PRD Q4 | Durasi QR pembayaran & pembayaran setelah kedaluwarsa? | ⏳ Terbuka. Usulan 15 menit + alokasi ulang/`needs_review` (§Integrations 1.4). |
 | PRD Q5 | Client bisa menonaktifkan Cash/QRIS per event? | 🟡 Disiapkan kolom `cash_enabled`; QRIS aktif bila `CONNECTED`. Perlu konfirmasi siapa yang boleh mengubah. |
 | PRD Q6 | Admin multi-event: satu akun atau per event? Boleh > 1 admin per event? | 🟡 Skema `memberships` mendukung satu akun banyak event & banyak admin per event. Perlu keputusan produk & UI pemilih event. |
@@ -1262,7 +1432,9 @@ penjualan, ~2–5 scan/detik per event saat hari-H.
 | PRD Q15 | Siapa mengisi kategori, tipe, kontak, kebijakan? | 🟡 UI-UX mengusulkan di tab Info Umum (Owner). Perlu konfirmasi. |
 | PRD Q16 | Tiket gratis (Rp 0)? | ⏳ Terbuka. Skema saat ini `CHECK price > 0`. |
 | PRD Q17 | Batas upload foto/video & domain kustom client? | ⏳ Terbuka. Usulan: gambar 10 MB, video 100 MB / embed YouTube; domain kustom pasca-MVP. |
-| PRD Q18 | Retensi data pribadi & persetujuan privasi (UU PDP)? | ⏳ Terbuka. Perlu durasi retensi untuk job anonimisasi. |
+| PRD Q18 | Retensi data pribadi & persetujuan privasi (UU PDP)? | ⏳ Terbuka. Perlu durasi retensi untuk job anonimisasi. (Lokasi penyimpanan sudah diputuskan: Singapura, D5.) |
+| PRD Q19 | Harga order baru dari reservasi kedaluwarsa: harga saat ini atau harga lama? | ⏳ Terbuka. DRD memakai **harga saat ini** + guard `expectedTotal` / `409 PRICE_CHANGED` (§Database 5.2a). |
+| PRD Q20 | Reissue sebagian bila kuota hanya cukup untuk sebagian jenis? | ⏳ Terbuka. DRD: semua-atau-tidak (`409 QUOTA_INSUFFICIENT`). |
 
 ### B. Dari UI-UX.md
 
@@ -1270,22 +1442,20 @@ penjualan, ~2–5 scan/detik per event saat hari-H.
 |---|---|
 | UX-1 | Data contoh tidak konsisten di overview: kuota Reguler 150 + VIP 50 = 200, tetapi Admin Dashboard menampilkan 230 terjual. Angka contoh mana yang dipakai? |
 | UX-2 | Rekomendasi UI yang perlu disetujui: checkout mobile full-screen sheet, label "Pesan Sekarang" untuk Cash, bottom nav Admin mobile, auto teks gelap bila kontras warna client kurang, "Powered by Uncle" di footer (boleh disembunyikan?). |
-| UX-3 | Dengan D2, Scanner butuh state baru **"Reservasi kedaluwarsa"** dan Step 5 Cash perlu menampilkan **batas reservasi**. Setuju ditambahkan ke `UI-UX.md`? |
-| UX-4 | Dengan D1, field email jadi wajib — perlu konfirmasi copy & validasi (mis. konfirmasi ketik ulang email atau saran koreksi typo). |
+| UX-3 | 🟡 **Sebagian:** state Scanner **"Reservasi Kedaluwarsa"** sudah ditambahkan ke `UI-UX.md` v1.1 (Scan (k)). Masih terbuka: Step 5 Cash, email `CASH_RESERVATION`, dan Cek Pesanan perlu menampilkan **batas reservasi** & status kedaluwarsa — belum ada di `UI-UX.md`. |
+| UX-4 | Field email sudah wajib di `UI-UX.md` v1.1 (copy: "QR Tiket dikirim ke email ini. Bukan untuk login."). Masih terbuka: perlu ketik ulang email atau cukup saran koreksi typo domain? |
 
 ### C. Pertanyaan Teknis Baru
 
 | # | Topik | Pertanyaan |
 |---|---|---|
-| T1 | Kredensial Tripay | Tripay membutuhkan **Merchant Code** selain API Key & Private Key, sementara mockup Payment Settings di overview hanya punya API Key & Private Key. Setuju menambah field Merchant Code (dan pilihan mode Sandbox/Production)? |
+| T1 | Kredensial Tripay | ✅ **Merchant Code terjawab:** Payment Settings memakai 3 kredensial (Merchant Code, API Key, Private Key) — overview, PRD ADM-07 & UI-UX v1.1. Masih terbuka: perlu pilihan mode Sandbox/Production di UI, atau mode ditentukan per environment saja? |
 | T2 | Tripay — channel & callback | Kode channel QRIS mana yang dipakai, apakah `callback_url` bisa diatur per transaksi atau harus didaftarkan manual per akun merchant di dashboard Tripay (berdampak ke onboarding client)? Perlu verifikasi dokumentasi resmi. |
 | T3 | Tripay — alur dana | Di Tripay, dana masuk ke saldo akun merchant client lalu ditarik ke rekening client. Apakah ini sesuai maksud "uang langsung masuk ke rekening client" di overview? |
 | T4 | Onboarding client ke Tripay | Client harus punya akun merchant Tripay terverifikasi (KYC bisnis) sebelum bisa QRIS. Berapa lama prosesnya, dan apakah Uncle perlu panduan/bantuan onboarding? |
-| T5 | Batas reservasi Cash | Default mana: `UNTIL_EVENT_START` (+ grace 60 menit) atau `FIXED_HOURS` (mis. 24/48 jam)? Apakah client punya titik bayar Cash sebelum hari-H? Batas reservasi Cash aktif per no HP (usulan 2)? |
-| T6 | Hosting & biaya | Setuju dengan stack rekomendasi (Vercel + Neon/Supabase + R2 + Resend + Upstash) atau lebih memilih VPS/Laravel? Berapa anggaran infrastruktur bulanan? Bahasa/framework yang paling dikuasai developer? |
-| T7 | Data residency & regulasi | Apakah data harus disimpan di Indonesia (PP 71/2019, UU PDP)? Apakah Uncle perlu mendaftar sebagai Penyelenggara Sistem Elektronik (PSE)? Ini menentukan region hosting. |
+| T5 | Batas reservasi Cash | 🟡 **Default terjawab:** jam selesai event, bisa dipercepat Owner (D6). Masih terbuka: batas reservasi Cash aktif per no HP (usulan 2)? Perlukah opsi batas berbasis durasi sejak pemesanan (mode `FIXED_HOURS` versi lama dihapus) untuk client yang punya titik bayar sebelum hari-H? |
 | T8 | Proyeksi beban | Perkiraan jumlah event aktif bersamaan, kuota terbesar per event, dan puncak pembeli per menit saat penjualan dibuka (untuk validasi asumsi §Deployment 4)? |
-| T9 | Email | Domain pengirim (`mail.uncle.id`?) dan siapa pengirim yang tampil (nama event vs Uncle)? Perkiraan volume email/bulan untuk memilih paket? |
+| T9 | Email | Domain pengirim (`mail.uncle.id`?) dan siapa pengirim yang tampil (nama event vs Uncle)? Perkiraan volume email/bulan & puncak per hari — tier gratis Resend dibatasi ±100 email/hari, setuju dengan pemicu upgrade di Integrations §2? |
 | T10 | 2FA & sesi | Setuju 2FA wajib untuk Owner? Durasi sesi Admin di HP scanner (usulan idle 12 jam)? |
 | T11 | RLS | Setuju menerapkan PostgreSQL RLS sejak MVP (lebih aman, sedikit menambah kompleksitas) atau cukup repository scoping + test di MVP? |
 | T12 | Realtime dashboard | Ringkasan Admin cukup refresh berkala (polling 15–30 detik) atau perlu realtime (SSE/WebSocket)? |
@@ -1294,3 +1464,7 @@ penjualan, ~2–5 scan/detik per event saat hari-H.
 | T15 | Owner & kredensial | Apakah Owner perlu kemampuan menonaktifkan QRIS sebuah tenant secara darurat (mis. kredensial bermasalah) tanpa melihat kredensial? |
 | T16 | Retensi webhook & audit | Berapa lama raw webhook & audit log disimpan (usulan: webhook 90 hari, audit 2 tahun)? |
 | T17 | Zona waktu | Semua event di WIB, atau perlu dukungan WITA/WIT (kolom `timezone` sudah disiapkan)? |
+| T18 | SSL subdomain (Cloudflare DNS + Vercel) | Karena DNS tetap di Cloudflare, Vercel tidak bisa menerbitkan sertifikat wildcard `*.uncle.id`. Setuju dengan pendekatan **daftar host per event via Vercel Domains API saat publish** (Deployment §3)? Alternatifnya memindahkan nameserver `uncle.id` ke Vercel (DNS tidak lagi di Cloudflare). Perlu juga verifikasi batas jumlah domain per project di Vercel Pro. |
+| T19 | Backup / PITR | Cukup backup harian Supabase Pro (RPO ≤ 24 jam) di awal, atau langsung ambil add-on PITR (± +US$100/bulan) sebelum event besar pertama? |
+| T21 | Perubahan batas setelah ada reservasi | Jika Owner mengubah jadwal event atau mempercepat batas reservasi setelah ada order `RESERVED`: hitung ulang `expires_at` order yang sudah ada? Usulan: jadwal berubah → hitung ulang semua; mode dipercepat → hanya order baru (batas di email pembeli lama tetap berlaku). |
+| T22 | Order lama setelah reissue | Saat customer membuka Cek Pesanan / link email dengan kode reservasi lama yang sudah dibuatkan order baru, tampilkan arahan ke order baru (butuh akses token order baru via email) atau cukup status "Kedaluwarsa"? |
