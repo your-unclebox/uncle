@@ -388,7 +388,7 @@ export async function getAdminOrderDetail(
 }
 
 // Nama admin untuk riwayat (users bukan tabel tenant; hanya id yang dirujuk order ini).
-async function loadUserNames(
+export async function loadUserNames(
   repo: TenantScopedRepository,
   ids: ReadonlyArray<string | null>,
 ): Promise<Map<string, string>> {

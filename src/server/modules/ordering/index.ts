@@ -14,6 +14,15 @@ export {
 export { effectiveOrderStatus, type PickupStatus } from "./admin-order-status";
 export { computeCashExpiresAt } from "./cash-reservation";
 export {
+  buildScanView,
+  checkInTicket,
+  confirmCashPayment,
+  scanTicket,
+  type ScanDeps,
+  type ScanResult,
+  type ScanView,
+} from "./scan-ticket";
+export {
   authorizeCustomerOrder,
   getCustomerOrder,
   lookupCustomerOrder,
@@ -43,6 +52,8 @@ export { allocateQuota, lockTicketTypes } from "./quota";
 export { reissueExpiredOrder, type ReissueDeps, type ReissueResult } from "./reissue-expired-order";
 export {
   adminOrderListQuerySchema,
+  confirmCashInputSchema,
+  scanInputSchema,
   createCashOrderInputSchema,
   customerSchema,
   publicOrderRequestSchema,

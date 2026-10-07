@@ -101,3 +101,42 @@ export class ActorRequiredError extends DomainError {
     super("Aksi ini membutuhkan actorUserId di TenantContext");
   }
 }
+
+// Kode baru (belum ada di DRD) — QR Tiket tidak ada / milik tenant lain (check-in).
+export class TicketNotFoundError extends DomainError {
+  readonly code = "TICKET_NOT_FOUND";
+  readonly status = 404;
+  constructor() {
+    super("Tiket tidak ditemukan");
+  }
+}
+
+// DRD Security §6 / I-9: check-in kalah cepat atau tiket sudah diambil.
+export class AlreadyCheckedInError extends DomainError {
+  readonly code = "ALREADY_CHECKED_IN";
+  readonly status = 409;
+  constructor(
+    readonly checkedInAt: Date | null,
+    readonly checkedInBy: string | null,
+  ) {
+    super("Tiket sudah diambil");
+  }
+}
+
+// Kode baru (belum ada di DRD) — "Tandai Diambil" hanya bila Lunas (BR-TKT-04).
+export class OrderNotPaidError extends DomainError {
+  readonly code = "ORDER_NOT_PAID";
+  readonly status = 409;
+  constructor() {
+    super("Tiket belum lunas, belum bisa ditandai diambil");
+  }
+}
+
+// Kode baru (belum ada di DRD) — Konfirmasi Lunas untuk reservasi yang lewat batas.
+export class ReservationExpiredError extends DomainError {
+  readonly code = "RESERVATION_EXPIRED";
+  readonly status = 409;
+  constructor() {
+    super("Reservasi sudah kedaluwarsa");
+  }
+}

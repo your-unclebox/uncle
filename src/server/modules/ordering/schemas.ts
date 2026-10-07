@@ -100,3 +100,29 @@ export const adminOrderListQuerySchema = z
   .strict();
 
 export type AdminOrderListQuery = z.output<typeof adminOrderListQuerySchema>;
+
+// Body POST /api/admin/events/{eventId}/scan (DRD API §5): QR Tiket ATAU kode
+// pesanan dari Input Kode Manual (SCN-06).
+export const scanInputSchema = z
+  .object({
+    payload: z.string().trim().min(1).max(512).optional(),
+    orderCode: z
+      .string()
+      .trim()
+      .toUpperCase()
+      .min(1, "Kode pesanan wajib diisi")
+      .max(32)
+      .optional(),
+  })
+  .strict()
+  .refine(
+    (input) => (input.payload === undefined) !== (input.orderCode === undefined),
+    "Isi salah satu: payload QR atau kode pesanan",
+  );
+
+export type ScanInput = z.input<typeof scanInputSchema>;
+
+// Body POST …/orders/{orderId}/confirm-cash (SCN-04): centang "Sudah terima uang".
+export const confirmCashInputSchema = z
+  .object({ cashReceived: z.literal(true, "Konfirmasi penerimaan uang wajib") })
+  .strict();

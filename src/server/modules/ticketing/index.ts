@@ -8,3 +8,4 @@ export {
   type ParsedTicketQr,
   type TicketQrClaims,
 } from "./ticket-qr";
+export { findTicketEventId } from "./ticket-event";
