@@ -1,0 +1,22 @@
+# Database development lokal. Hanya untuk dev — production memakai Supabase Pro.
+# Postgres 17 = versi mayor project baru Supabase.
+services:
+  db:
+    image: postgres:17-alpine
+    container_name: uncle-dev-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${DEV_DB_PASSWORD:-postgres}
+      POSTGRES_DB: uncle_dev
+    ports:
+      - "127.0.0.1:54322:5432"
+    volumes:
+      - uncle-dev-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d uncle_dev"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+
+volumes:
+  uncle-dev-db:
