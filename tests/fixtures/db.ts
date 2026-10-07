@@ -84,3 +84,15 @@ export async function createTicket(
   if (!ticket) throw new Error("createTicket gagal");
   return ticket;
 }
+
+export async function createUser(
+  db: Database,
+  overrides: Partial<typeof schema.users.$inferInsert> = {},
+) {
+  const [user] = await db
+    .insert(schema.users)
+    .values({ email: `admin-${randomHex(4)}@example.com`, name: "Rina", ...overrides })
+    .returning();
+  if (!user) throw new Error("createUser gagal");
+  return user;
+}

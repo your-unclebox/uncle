@@ -18,6 +18,8 @@ export default defineConfig({
       thresholds: {
         // AI-CODING-RULES Testing §2 — modul kritis.
         "src/server/tenancy/**": { lines: 90, branches: 85 },
+        "src/server/modules/ordering/**": { lines: 90, branches: 85 },
+        "src/server/modules/ticketing/**": { lines: 90, branches: 85 },
       },
     },
     projects: [
@@ -36,6 +38,9 @@ export default defineConfig({
           environment: "node",
           include: ["tests/integration/**/*.test.ts", "tests/cross-tenant/**/*.test.ts"],
           globalSetup: ["tests/setup/postgres-container.ts"],
+          // Satu DB bersama; job lintas tenant (expire-orders) tidak boleh
+          // berjalan bersamaan dengan file test lain.
+          fileParallelism: false,
           testTimeout: 30_000,
           hookTimeout: 120_000,
         },
