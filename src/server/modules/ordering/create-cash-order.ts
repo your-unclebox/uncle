@@ -4,16 +4,16 @@ import { eq, sql } from "drizzle-orm";
 
 import { generateToken, sha256 } from "@/lib/crypto/tokens";
 import { emailOutbox, orderItems, orders, tickets } from "@/server/db/schema";
-import { parseInput, ValidationError } from "@/server/http/validation-error";
+import { parseInput } from "@/server/http/validation-error";
 import { issueTicket, rebuildTicketQrPayload } from "@/server/modules/ticketing";
 import type { TenantScopedRepository } from "@/server/tenancy";
 
 import { computeCashExpiresAt } from "./cash-reservation";
-import { EventNotFoundError, PaymentMethodUnavailableError, SalesClosedError } from "./errors";
+import { PaymentMethodUnavailableError, SalesClosedError } from "./errors";
 import { insertOrderWithUniqueCode } from "./insert-order";
+import { allocateOrderLines, assertEventSellable } from "./order-lines";
 import { initialOrderStatus } from "./order-state-machine";
 import { computeOrderTotal } from "./pricing";
-import { allocateQuota } from "./quota";
 import { createCashOrderInputSchema } from "./schemas";
 
 export interface CreateCashOrderDeps {
@@ -56,35 +56,13 @@ export async function createCashOrder(
     if (existing) return replayCashOrder(repo, existing, deps.qrSigningKey);
   }
 
-  const event = await repo.getEvent();
-  if (!event || event.status === "DRAFT") throw new EventNotFoundError();
-  if (event.status !== "ACTIVE" || !event.salesOpen) throw new SalesClosedError();
+  const event = assertEventSellable(await repo.getEvent(), now);
   if (!event.cashEnabled) throw new PaymentMethodUnavailableError("CASH");
 
   const expiresAt = computeCashExpiresAt(event);
   if (expiresAt <= now) throw new SalesClosedError();
 
-  // BR-TRX-01 & BR-TRX-05: boleh campur jenis, total 1..max_tickets_per_order.
-  const requested = input.items.filter((item) => item.quantity > 0);
-  const totalQuantity = requested.reduce((sum, item) => sum + item.quantity, 0);
-  if (totalQuantity < 1) throw new ValidationError({ items: ["Pilih minimal 1 tiket"] });
-  if (totalQuantity > event.maxTicketsPerOrder) {
-    throw new ValidationError({
-      items: [`Maksimal ${event.maxTicketsPerOrder} tiket per transaksi`],
-    });
-  }
-
-  const ticketTypeRows = await allocateQuota(tx, eventId, requested, now);
-  const lines = requested.map((item) => {
-    const ticketType = ticketTypeRows.get(item.ticketTypeId);
-    if (!ticketType) throw new Error("Jenis tiket hilang setelah alokasi kuota.");
-    return {
-      ticketTypeId: item.ticketTypeId,
-      quantity: item.quantity,
-      unitPrice: ticketType.price,
-      ticketTypeName: ticketType.name,
-    };
-  });
+  const lines = await allocateOrderLines(tx, event, input.items, now);
 
   const accessToken = generateToken();
   const order = await insertOrderWithUniqueCode(tx, {

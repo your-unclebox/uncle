@@ -80,11 +80,27 @@ export async function expireOrderIfDue(
     return false;
   }
 
-  await transitionOrderStatus(tx, order, "EXPIRED");
+  await expireOrder(tx, order, params.now, "ORDER_EXPIRED");
+  return true;
+}
+
+/**
+ * Order aktif → EXPIRED sekarang: kuota dilepas, ticket VOID, email
+ * RESERVATION_EXPIRED untuk Cash. Dipakai expire-on-due dan kompensasi gateway
+ * (QRIS gagal dibuat / gateway melaporkan EXPIRED/FAILED). Pemanggil WAJIB
+ * sudah mengunci ticket_types order ini lalu baris order-nya.
+ */
+export async function expireOrder(
+  tx: DatabaseTransaction,
+  order: Order,
+  now: Date,
+  reason: "ORDER_EXPIRED" | "GATEWAY_ERROR" | "GATEWAY_EXPIRED",
+): Promise<Order> {
+  const expired = await transitionOrderStatus(tx, order, "EXPIRED");
   await releaseQuota(tx, order.eventId, order.id);
   await tx
     .update(tickets)
-    .set({ status: "VOID", voidedAt: params.now, voidReason: "ORDER_EXPIRED" })
+    .set({ status: "VOID", voidedAt: now, voidReason: reason })
     .where(
       and(
         eq(tickets.eventId, order.eventId),
@@ -101,5 +117,5 @@ export async function expireOrderIfDue(
       payload: { orderCode: order.orderCode },
     });
   }
-  return true;
+  return expired;
 }
