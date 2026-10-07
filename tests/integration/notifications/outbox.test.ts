@@ -1,6 +1,6 @@
 import { randomBytes } from "node:crypto";
 
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 
 import { EmailSendFailure, type EmailMessage, type EmailSender } from "@/integrations/email";
@@ -135,16 +135,57 @@ describe("Email outbox (DRD Integrations §2)", () => {
     expect(await reload(second.row.id)).toMatchObject({ status: "FAILED", attempts: 1 });
   });
 
-  it("dua worker paralel tidak mengirim email yang sama dua kali (SKIP LOCKED)", async () => {
+  it("worker kedua tidak mengklaim ulang email yang sedang dikirim worker pertama", async () => {
     const orders = await Promise.all([cashOrder(), cashOrder(), cashOrder()]);
-    const { sender, sent } = fakeSender();
-    await Promise.all([
-      processEmailOutbox(db, deps(sender, BEFORE_EVENT)),
-      processEmailOutbox(db, deps(sender, BEFORE_EVENT)),
-    ]);
-    for (const { row } of orders) {
-      expect(sent.filter((m) => m.idempotencyKey === `email-outbox-${row.id}`)).toHaveLength(1);
+    const ids = new Set(orders.map(({ row }) => `email-outbox-${row.id}`));
+    const sent: EmailMessage[] = [];
+    // Worker A berhenti di tengah pengiriman (mis. menunggu Resend) …
+    let release: () => void = () => undefined;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let reachedSend: () => void = () => undefined;
+    const inFlight = new Promise<void>((resolve) => {
+      reachedSend = resolve;
+    });
+    const slow: EmailSender = {
+      async send(message) {
+        if (ids.has(message.idempotencyKey)) {
+          reachedSend();
+          await gate;
+        }
+        sent.push(message);
+        return { providerMessageId: `re_${randomBytes(4).toString("hex")}` };
+      },
+    };
+    // `now` aplikasi berbeda dari jam DB (updated_at diisi trigger dengan now() DB).
+    const workerA = processEmailOutbox(db, deps(slow, BEFORE_EVENT));
+    await inFlight;
+    // … sementara worker B berjalan penuh: baris SENDING milik A tidak boleh diklaim ulang.
+    const { sender, sent: sentByB } = fakeSender();
+    await processEmailOutbox(db, deps(sender, BEFORE_EVENT));
+    release();
+    await workerA;
+    for (const id of ids) {
+      expect(sentByB.filter((m) => m.idempotencyKey === id)).toHaveLength(0);
+      expect(sent.filter((m) => m.idempotencyKey === id)).toHaveLength(1);
     }
+  });
+
+  it("SENDING yang macet > 10 menit (jam DB) diklaim ulang dan dikirim", async () => {
+    const { row } = await cashOrder();
+    // Simulasikan worker mati 11 menit lalu (trigger updated_at dimatikan sementara).
+    await db.transaction(async (tx) => {
+      await tx.execute(sql`SET LOCAL session_replication_role = replica`);
+      await tx
+        .update(emailOutbox)
+        .set({ status: "SENDING", attempts: 1, updatedAt: sql`now() - interval '11 minutes'` })
+        .where(eq(emailOutbox.id, row.id));
+    });
+    const { sender, sent } = fakeSender();
+    await processEmailOutbox(db, deps(sender, new Date()));
+    expect(sent.filter((m) => m.idempotencyKey === `email-outbox-${row.id}`)).toHaveLength(1);
+    expect(await reload(row.id)).toMatchObject({ status: "SENT", attempts: 2 });
   });
 
   it("QR Tiket sudah VOID → email reservasi tidak dikirim (FAILED + alasan)", async () => {
