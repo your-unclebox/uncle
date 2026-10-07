@@ -32,13 +32,15 @@ const serverEnvSchema = z.object({
 export type ServerEnv = z.infer<typeof serverEnvSchema>;
 
 // Nilai kosong di .env diperlakukan sebagai "tidak diisi".
-function withoutEmptyValues(source: NodeJS.ProcessEnv): Record<string, string> {
+type EnvSource = Readonly<Record<string, string | undefined>>;
+
+function withoutEmptyValues(source: EnvSource): Record<string, string> {
   return Object.fromEntries(
     Object.entries(source).filter((entry): entry is [string, string] => Boolean(entry[1])),
   );
 }
 
-export function parseServerEnv(source: NodeJS.ProcessEnv): ServerEnv {
+export function parseServerEnv(source: EnvSource): ServerEnv {
   const result = serverEnvSchema.safeParse(withoutEmptyValues(source));
   if (!result.success) {
     // Hanya nama variabel yang disebut, tidak pernah nilainya.
