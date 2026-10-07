@@ -8,7 +8,7 @@
 > no HP) ditandai **(ikut asumsi PRD)**.
 >
 > **Contoh kasus:** event **Teater Bagol** (`teaterbagol.uncle.id`).
-> **Status:** Draft v1.4 · **Tanggal:** 7 Oktober 2026 · **Scope:** MVP
+> **Status:** Draft v1.5 · **Tanggal:** 7 Oktober 2026 · **Scope:** MVP
 >
 > **Perubahan v1.1 (patch dari v1, 6 Okt 2026):** (1) field **Email wajib** di
 > Step 2 (bukan opsional; untuk kirim salinan QR Tiket, bukan login);
@@ -26,6 +26,10 @@
 >
 > **Perubahan v1.4:** ringkasan event di Step 5 (Tiket Siap, QRIS Lunas)
 > memakai rentang penuh `19:00–22:00 WIB`.
+>
+> **Perubahan v1.5:** Payment Settings memakai provider **DOKU** dengan **2
+> kredensial: Client ID (BRN) + Secret Key** (PRD v1.5 ADM-07). Step 4 tetap
+> menampilkan QR pembayaran langsung di landing.
 
 **Tiga permukaan utama:**
 
@@ -836,15 +840,14 @@ Desktop: form 560px di tengah · Mobile: full-width, 1 kolom
 │ ⓘ Pembayaran QRIS masuk langsung ke      │
 │   rekening akun QRIS kamu. Uncle tidak   │
 │   menyimpan dana.                        │
-│ Provider         [ Tripay ▾ ]            │
-│ Merchant Code *  [______________] 👁      │
-│ API Key *        [______________] 👁      │
-│ Private Key *    [______________] 👁      │
-│ ⓘ Cara mendapatkan Merchant Code,        │
-│   API Key & Private Key Tripay ↗         │
+│ Provider         [ DOKU ▾ ]              │
+│ Client ID (BRN)* [______________] 👁      │
+│ Secret Key *     [______________] 👁      │
+│ ⓘ Cara mendapatkan Client ID & Secret    │
+│   Key DOKU ↗                             │
 │ [         Simpan & Uji Koneksi         ] │
 └──────────────────────────────────────────┘
- Ketiga field wajib; tombol tetap aktif, field kosong ditandai "Wajib diisi"
+ Kedua field wajib; tombol tetap aktif, field kosong ditandai "Wajib diisi"
  saat Simpan ditekan.
 
 (b) Sedang menguji
@@ -853,9 +856,8 @@ Desktop: form 560px di tengah · Mobile: full-width, 1 kolom
 (c) Terhubung
 │ Status Koneksi   ✅ Terhubung             │
 │                  Diuji 12 Nov 2026 10:00  │
-│ Merchant Code    [ ●●●●●●●●●●2345 ]       │ (masked, 4 char terakhir)
-│ API Key          [ ●●●●●●●●●●a3f9 ]       │ (masked, 4 char terakhir)
-│ Private Key      [ ●●●●●●●●●●●●●● ]       │ (masked penuh)
+│ Client ID (BRN)  [ ●●●●●●●●●●2345 ]       │ (masked, 4 char terakhir)
+│ Secret Key       [ ●●●●●●●●●●●●●● ]       │ (masked penuh)
 │ [ Ganti Kredensial ]  [ Uji Ulang ]       │
 
 (d) Gagal

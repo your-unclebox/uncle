@@ -6,7 +6,7 @@
 > **Pertanyaan Terbuka** di akhir dokumen.
 >
 > **Contoh kasus:** event **Teater Bagol** (`teaterbagol.uncle.id`).
-> **Status:** Draft v1.4 · **Tanggal:** 7 Oktober 2026 · **Scope:** MVP
+> **Status:** Draft v1.5 · **Tanggal:** 7 Oktober 2026 · **Scope:** MVP
 >
 > **Perubahan v1.1 (patch dari v1, 6 Okt 2026):** (1) email customer **wajib**
 > (BR-TRX-02/03, LP-07); (2) Cash = **Reserved** dengan batas waktu — default
@@ -25,6 +25,10 @@
 >
 > **Perubahan v1.4:** LP-02 (Hero) juga menampilkan rentang waktu dengan
 > format yang sama.
+>
+> **Perubahan v1.5:** payment gateway QRIS = **DOKU** (bukan Tripay); Payment
+> Settings memakai **2 kredensial: Client ID (BRN/Merchant Code) + Secret Key**
+> (ADM-07, AC-ADM-07.1/07.3). Keputusan pemilik project.
 
 ---
 
@@ -219,7 +223,7 @@ bila kapasitas memungkinkan · **Could** = nice-to-have, bisa setelah MVP.
 | ADM-04 | Daftar Transaksi | Kolom: nama, no HP, jenis & jumlah tiket, metode bayar, status bayar, status ambil. | Must |
 | ADM-05 | Filter & Cari Transaksi | Filter status bayar, status ambil, metode bayar; cari nama/no HP/kode pesanan. | Must |
 | ADM-06 | Detail Transaksi | Rincian item tiket, total, waktu transaksi, waktu lunas, waktu diambil, siapa yang menandai. | Must |
-| ADM-07 | Payment Settings (QRIS) | Pilih provider (mis. Tripay), isi **3 kredensial: Merchant Code, API Key, Private Key** (dimasking), simpan, tampilkan status koneksi. | Must |
+| ADM-07 | Payment Settings (QRIS) | Provider **DOKU**, isi **2 kredensial: Client ID (BRN/Merchant Code) dan Secret Key** (dimasking), simpan, tampilkan status koneksi. | Must |
 | ADM-08 | Kirim Ulang QR Tiket | Kirim ulang email QR Tiket ke pembeli. *(Asumsi)* | Could |
 | ADM-09 | Batalkan Transaksi / Tandai Refund | Batalkan transaksi (mis. Cash tidak datang, atau refund di luar sistem) → kuota dikembalikan & QR Tiket tidak berlaku. *(Asumsi — perlu konfirmasi, lihat BR Refund)* | Could |
 | ADM-10 | Export Transaksi (CSV) | Unduh daftar transaksi event. | Could |
@@ -417,9 +421,9 @@ bila kapasitas memungkinkan · **Could** = nice-to-have, bisa setelah MVP.
 - **AC-ADM-05.3 (tidak ada hasil)** — **Given** admin mencari nama yang tidak ada · **When** pencarian dijalankan · **Then** tampil pesan "Tidak ada transaksi yang cocok".
 
 #### ADM-07 Payment Settings (QRIS)
-- **AC-ADM-07.1 (sukses)** — **Given** admin di menu Payment Settings · **When** admin memilih provider Tripay, mengisi Merchant Code, API Key & Private Key yang valid, lalu Simpan · **Then** sistem menguji koneksi, menampilkan "✅ Terhubung", dan opsi QRIS muncul di landing page.
+- **AC-ADM-07.1 (sukses)** — **Given** admin di menu Payment Settings · **When** admin mengisi Client ID (BRN) & Secret Key DOKU yang valid, lalu Simpan · **Then** sistem menguji koneksi, menampilkan "✅ Terhubung", dan opsi QRIS muncul di landing page.
 - **AC-ADM-07.2 (gagal — kredensial salah)** — **Given** admin di Payment Settings · **When** admin menyimpan kredensial yang ditolak provider · **Then** status menampilkan "Gagal terhubung" beserta alasan dari provider bila ada, dan opsi QRIS tidak tampil di landing page.
-- **AC-ADM-07.3 (gagal — field kosong)** — **Given** admin di Payment Settings · **When** admin klik Simpan dengan salah satu dari Merchant Code, API Key, atau Private Key kosong · **Then** penyimpanan ditolak dengan pesan validasi pada field yang kosong.
+- **AC-ADM-07.3 (gagal — field kosong)** — **Given** admin di Payment Settings · **When** admin klik Simpan dengan Client ID (BRN) atau Secret Key kosong · **Then** penyimpanan ditolak dengan pesan validasi pada field yang kosong.
 - **AC-ADM-07.4 (keamanan)** — **Given** kredensial sudah tersimpan · **When** admin atau Owner membuka kembali Payment Settings · **Then** kredensial hanya tampil termasking dan tidak bisa disalin utuh.
 - **AC-ADM-07.5 (belum diatur)** — **Given** admin belum mengatur QRIS · **When** customer membuka landing page · **Then** hanya metode Cash yang tersedia (BR-PAY-09).
 

@@ -5,7 +5,7 @@
 > opsional.
 >
 > **Sumber kebenaran (urutan prioritas bila bertentangan):**
-> `uncle-overview.md` → `PRD.md` (v1.4) → `UI-UX.md` (v1.4) → `DRD.md` (v1.5,
+> `uncle-overview.md` → `PRD.md` (v1.5) → `UI-UX.md` (v1.5) → `DRD.md` (v1.6,
 > acuan final tech stack & arsitektur) → dokumen ini. Dokumen ini **tidak
 > boleh** dipakai untuk membatalkan keputusan di empat dokumen tersebut.
 >
@@ -41,8 +41,8 @@
    sesuatu termasuk "di luar permintaan", anggap **termasuk**.
 3. **[WAJIB] Keputusan final tidak boleh diubah sepihak.** Keputusan yang sudah
    difinalkan di `uncle-overview.md`, `PRD.md`, `UI-UX.md`, atau `DRD.md`
-   (mis. email wajib, batas reservasi Cash default = jam selesai event, 3
-   kredensial Tripay, stack D5, state machine order, format QR Tiket) **hanya
+   (mis. email wajib, batas reservasi Cash default = jam selesai event,
+   kredensial DOKU (D8), stack D5, state machine order, format QR Tiket) **hanya
    boleh diusulkan**, tidak boleh diubah — baik di kode maupun di dokumen.
    Jika implementasi tidak mungkin tanpa mengubahnya, **berhenti**, jelaskan
    konfliknya, dan ajukan usulan. Jangan menulis kode yang menyimpang.
@@ -154,8 +154,8 @@ dianggap bug kritis.
 
 ### 6. Keamanan kredensial QRIS & secret
 
-- **[WAJIB]** Merchant Code, API Key, Private Key Tripay disimpan sesuai DRD
-  Security §1: API Key & Private Key dienkripsi **AES-256-GCM** (envelope
+- **[WAJIB]** Kredensial gateway (DOKU: Client ID/BRN + Secret Key, D8;
+  implementasi Tripay sementara) disimpan sesuai DRD Security §1: secret dienkripsi **AES-256-GCM** (envelope
   encryption, AAD = `event_id` + `payment_config_id`).
 - **[WAJIB]** Kredensial mentah **tidak pernah**: dikembalikan API, dikirim ke
   browser, ditulis ke log/Sentry/audit log, disimpan di fixture/test snapshot,
@@ -401,7 +401,7 @@ permintaan — perlu dikonfirmasi", (3) persetujuan sebelum di-merge.
 
 **[WAJIB]** Pilihan stack & provider yang sudah final di DRD (D5): **Vercel
 Pro**, **Supabase Pro** (Postgres + Storage, Singapore), **Cloudflare** (DNS,
-Turnstile), **Resend**, **Tripay** sebagai payment gateway — **tidak boleh
+Turnstile), **Resend**, **DOKU** sebagai payment gateway (D8, menggantikan Tripay) — **tidak boleh
 diganti** atau ditambah alternatifnya tanpa persetujuan eksplisit.
 
 | Kebutuhan | Library / layanan yang boleh | Catatan |
@@ -414,7 +414,7 @@ diganti** atau ditambah alternatifnya tanpa persetujuan eksplisit.
 | Auth & session | `better-auth` (session di Postgres sendiri) | DRD juga mengizinkan session custom; pilih satu di awal, tidak dicampur. |
 | Hash password | Argon2id via `@node-rs/argon2` **[KONFIRMASI]** | DRD mewajibkan Argon2id tanpa menyebut library. |
 | 2FA Owner (TOTP) | Plugin 2FA bawaan Better Auth | Tidak menambah library TOTP terpisah. |
-| Payment gateway | **Tripay** via `fetch` + adapter `PaymentProvider` buatan sendiri | Tanpa SDK pihak ketiga. |
+| Payment gateway | **DOKU** (D8) via `fetch` + adapter `PaymentProvider` buatan sendiri | Tanpa SDK pihak ketiga. Adapter Tripay sementara sampai adapter DOKU dibangun. |
 | Kirim email | `resend`, `@react-email/components` | Lewat interface `EmailSender` + outbox. |
 | File storage | `@supabase/supabase-js` (Storage saja, server-side) | |
 | Rate limit & cache | `@upstash/ratelimit`, `@upstash/redis` | |
