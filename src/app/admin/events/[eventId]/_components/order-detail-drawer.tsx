@@ -51,6 +51,7 @@ export function OrderDetailDrawer({
   const state: State = loaded && loaded.orderId === orderId ? loaded.state : { kind: "loading" };
   const setState = (id: string, next: State) => setLoaded({ orderId: id, state: next });
   const [saving, setSaving] = useState(false);
+  const [resending, setResending] = useState(false);
   const api = `/api/admin/events/${eventId}`;
 
   useEffect(() => {
@@ -92,6 +93,22 @@ export function OrderDetailDrawer({
     }
   }
 
+  // ADM-08: kirim ulang email QR Tiket (hanya pesanan Lunas).
+  async function resendTicket(detail: AdminOrderDetail) {
+    setResending(true);
+    try {
+      await apiFetch(`${api}/orders/${detail.id}/resend-ticket`, { method: "POST" });
+      toast("Email terkirim");
+    } catch (error) {
+      toast(
+        error instanceof ApiError ? error.problem.title : "Email gagal dikirim. Coba lagi.",
+        "danger",
+      );
+    } finally {
+      setResending(false);
+    }
+  }
+
   return (
     <DialogPrimitive.Root open={orderId !== null} onOpenChange={(open) => !open && onClose()}>
       <DialogPrimitive.Portal>
@@ -123,7 +140,9 @@ export function OrderDetailDrawer({
               <DetailBody
                 detail={state.detail}
                 saving={saving}
+                resending={resending}
                 onCheckIn={() => void checkIn(state.detail)}
+                onResend={() => void resendTicket(state.detail)}
                 onCopy={(text) =>
                   void navigator.clipboard?.writeText(text).then(() => toast("No HP disalin"))
                 }
@@ -139,12 +158,16 @@ export function OrderDetailDrawer({
 function DetailBody({
   detail,
   saving,
+  resending,
   onCheckIn,
+  onResend,
   onCopy,
 }: {
   detail: AdminOrderDetail;
   saving: boolean;
+  resending: boolean;
   onCheckIn: () => void;
+  onResend: () => void;
   onCopy: (text: string) => void;
 }) {
   const canCheckIn = detail.status === "PAID" && detail.ticket?.status === "ISSUED";
@@ -187,6 +210,11 @@ function DetailBody({
           </>
         ) : null}
       </dl>
+      {detail.status === "PAID" ? (
+        <Button variant="secondary" loading={resending} onClick={onResend}>
+          {resending ? "Mengirim…" : "Kirim Ulang Email"}
+        </Button>
+      ) : null}
 
       <div className="flex flex-col gap-2 border-t border-border pt-4 text-sm">
         {detail.items.map((item) => (

@@ -1,6 +1,9 @@
 import "server-only";
 
+import { EmailSendFailure } from "@/integrations/email";
+import { logger } from "@/lib/logger";
 import { getDb } from "@/server/db/client";
+import { EmailSendFailedError, prepareTicketResend } from "@/server/modules/notifications";
 import {
   confirmCashPayment,
   getAdminOrderDetail,
@@ -17,7 +20,7 @@ import {
 } from "@/server/modules/ticketing";
 import { withTenant } from "@/server/tenancy";
 
-import { kickEmailOutbox } from "./email-dispatch";
+import { kickEmailOutbox, outboxDeps } from "./email-dispatch";
 import { readJson } from "./request";
 import { authenticateEventAdmin } from "./route";
 
@@ -110,6 +113,28 @@ export async function adminCheckIn(request: Request, eventId: string, ticketId: 
     const ticket = await checkInTicket(repo, ticketId, { now });
     return describeOrderForScanner(repo, ticket.orderId, now);
   });
+}
+
+/**
+ * POST …/orders/{orderId}/resend-ticket (ADM-08): email QR Tiket dikirim
+ * langsung (tanpa outbox), di luar transaksi DB agar koneksi tidak tertahan
+ * selama memanggil Resend.
+ */
+export async function adminResendTicket(request: Request, eventId: string, orderId: string) {
+  const { tenant } = await authenticateEventAdmin(request, eventId);
+  const { sender, ...composeDeps } = outboxDeps();
+  const message = await withTenant(getDb(), tenant, (repo) =>
+    prepareTicketResend(repo, orderId, composeDeps),
+  );
+  try {
+    await sender.send(message);
+  } catch (error) {
+    if (!(error instanceof EmailSendFailure)) throw error;
+    // Tanpa alamat email (PII) di log — AI-CODING-RULES §8.
+    logger.warn("Kirim ulang email tiket gagal", { eventId, orderId, kind: error.kind });
+    throw new EmailSendFailedError();
+  }
+  return { message: `Email tiket berhasil dikirim ke ${message.to}` };
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

@@ -5,7 +5,7 @@
 > **"Rekomendasi"** beserta alasannya. Semua pertanyaan terbuka dikumpulkan di
 > bagian **Pertanyaan Terbuka** di akhir dokumen.
 >
-> **Status:** Draft v1.6 · **Tanggal:** 7 Oktober 2026 · **Scope:** MVP
+> **Status:** Draft v1.7 · **Tanggal:** 7 Oktober 2026 · **Scope:** MVP
 >
 > **Perubahan v1.1 (patch dari v1, 6 Okt 2026):** hosting final (D5 — Tech
 > Stack §2, Deployment, Integrations §3); batas reservasi Cash mengikuti
@@ -39,6 +39,14 @@
 > Merchant Code) + Secret Key**; QR pembayaran tetap tampil langsung di landing
 > (Step 4). Detail endpoint & signature DOKU ditulis di Integrations §1 saat
 > adapter DOKU dibangun; implementasi Tripay yang ada bersifat sementara.
+>
+> **Perubahan v1.7:** endpoint Kirim Ulang QR Tiket (ADM-08) menjadi
+> `POST …/orders/{orderId}/resend-ticket` (sebelumnya `…/resend-ticket-email`);
+> hanya order `PAID`, email dikirim **langsung tanpa outbox** (resend tidak
+> mengubah status), **tanpa rate limit di MVP** (endpoint khusus admin), tanpa
+> kolom baru & tanpa audit log; dua kode error baru `TICKET_RESEND_NOT_ALLOWED`
+> & `EMAIL_SEND_FAILED` (API §5). Rate limit resend dicatat sebagai T24.
+> Keputusan pemilik project.
 
 > **⚠️ Keputusan baru dari brief DRD yang mengubah dokumen sebelumnya**
 >
@@ -884,7 +892,7 @@ Host: `app.uncle.id`.
 | POST | `/api/admin/events/{eventId}/orders/{orderId}/reissue` | **Baru (D7).** Buat order baru berstatus `PAID` dari reservasi Cash `{orderId}` yang kedaluwarsa, dengan data customer & item yang sama. Reuse logika alokasi kuota create order (§Database 5.2a). Body: `{ "cashReceived": true, "expectedTotal": 150000 }`; header `Idempotency-Key`. |
 | POST | `/api/admin/events/{eventId}/orders/{orderId}/cancel` | Batalkan (`{reason}`), lepas kuota, VOID tiket. |
 | POST | `/api/admin/events/{eventId}/orders/{orderId}/mark-refunded` | Tandai refund (pencatatan saja, keputusan D4). |
-| POST | `/api/admin/events/{eventId}/orders/{orderId}/resend-ticket-email` | Kirim ulang email QR Tiket (rate limited). |
+| POST | `/api/admin/events/{eventId}/orders/{orderId}/resend-ticket` | Kirim ulang email QR Tiket (ADM-08, v1.7). Hanya order `PAID`; email `TICKET_ISSUED` disusun ulang dengan template yang sama dan dikirim **langsung** lewat `EmailSender` (tanpa outbox, karena tidak mengubah status; tanpa kolom baru & audit log). **MVP tanpa rate limit** (khusus admin; lihat T24). Respons `200 {"message": "Email tiket berhasil dikirim ke {email}"}`. |
 | POST | `/api/admin/events/{eventId}/scan` | Validasi QR: body `{ "payload": "U1.…" }` atau `{ "orderCode": "UNC-…" }` (input manual). |
 | POST | `/api/admin/events/{eventId}/tickets/{ticketId}/check-in` | Tandai Tiket Diambil (atomik). |
 | GET | `/api/admin/events/{eventId}/payment-config` | Status & data termasking (tidak pernah mengembalikan secret). |
@@ -892,6 +900,11 @@ Host: `app.uncle.id`.
 | POST | `/api/admin/events/{eventId}/payment-config/test` | Uji ulang koneksi. |
 | GET | `/api/admin/events/{eventId}/payment-config/webhook-url` | URL callback untuk didaftarkan di dashboard gateway (jika diperlukan). |
 | GET | `/api/admin/events/{eventId}/orders/export.csv` | Export (Could Have). |
+
+**Kode error `…/resend-ticket` (v1.7):** `404 ORDER_NOT_FOUND` (order tidak ada
+/ tenant lain — aturan I-2, bukan 403), `400 TICKET_RESEND_NOT_ALLOWED` dengan
+`reason` = `ORDER_NOT_PAID` | `EMAIL_MISSING` | `TICKET_UNAVAILABLE`, dan
+`502 EMAIL_SEND_FAILED` (Resend menolak / tidak bisa dihubungi).
 
 **Contoh — `POST /api/admin/events/{eventId}/scan`**
 
@@ -1480,6 +1493,7 @@ Skenario kenaikan yang paling mungkin:
 | T4 | Onboarding client ke Tripay | Client harus punya akun merchant Tripay terverifikasi (KYC bisnis) sebelum bisa QRIS. Berapa lama prosesnya, dan apakah Uncle perlu panduan/bantuan onboarding? |
 | T5 | Batas reservasi Cash | 🟡 **Default terjawab:** jam selesai event, bisa dipercepat Owner (D6). **Sementara (v1.5):** tanpa batas reservasi Cash aktif per no HP di MVP; ditinjau ulang setelah ada data nyata. Perlukah opsi batas berbasis durasi sejak pemesanan (mode `FIXED_HOURS` versi lama dihapus) untuk client yang punya titik bayar sebelum hari-H? |
 | T23 | DOKU | Produk/endpoint DOKU mana untuk QRIS yang mengembalikan isi QR (bukan halaman checkout), format signature request & notifikasi, dan cara uji koneksi kredensial (Client ID/BRN + Secret Key)? Perlu dokumentasi resmi DOKU (tidak bisa diakses dari environment build). |
+| T24 | Rate limit resend tiket | 🟡 **Sementara (v1.7):** `POST …/resend-ticket` tanpa rate limit di MVP (endpoint khusus admin, admin dipercaya). **Tinjau ulang sebelum go-live:** perlukah batas per order/admin untuk menjaga kuota harian Resend (T9) dan mencegah spam ke pembeli? |
 | T8 | Proyeksi beban | Perkiraan jumlah event aktif bersamaan, kuota terbesar per event, dan puncak pembeli per menit saat penjualan dibuka (untuk validasi asumsi §Deployment 4)? |
 | T9 | Email | Domain pengirim (`mail.uncle.id`?) dan siapa pengirim yang tampil (nama event vs Uncle)? Perkiraan volume email/bulan & puncak per hari — tier gratis Resend dibatasi ±100 email/hari, setuju dengan pemicu upgrade di Integrations §2? |
 | T10 | 2FA & sesi | Setuju 2FA wajib untuk Owner? Durasi sesi Admin di HP scanner (usulan idle 12 jam)? |
